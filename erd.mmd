@@ -1,0 +1,75 @@
+erDiagram
+	direction TB
+	Category {
+		string category_name
+		string description
+	}
+	Course {
+		text description
+		string status
+		string title
+	}
+	Lesson {
+		string content_type
+		integer position
+		string title
+	}
+	LessonProgress {
+		datetime completed_at
+		integer quiz_attempts
+		decimal quiz_score
+		datetime started_at
+		string status
+	}
+	Option {
+		string option_text
+		integer position
+	}
+	QuestionBank {
+		decimal marks
+		integer position
+		text question_text
+		string question_type
+	}
+	Quiz {
+		text description
+		integer pass_marks
+		string quiz_type
+		string title
+	}
+	Role {
+		string name
+	}
+	User {
+		string email
+		string password
+	}
+	UserCourse {
+		datetime assigned_at
+		datetime completed_at
+		date due_date
+		integer final_quiz_attempts
+		decimal final_quiz_score
+		string status
+	}
+	UserOption {
+		integer attempt_number
+	}
+	Category ||--}o Course : ""
+	Category ||--}o QuestionBank : ""
+	Course ||--}o Lesson : ""
+	Course ||--}o UserCourse : ""
+	Course o|--}o Quiz : ""
+	Course ||--}o QuestionBank : ""
+	Lesson ||--}o LessonProgress : ""
+	Lesson o|--}o Quiz : ""
+	UserCourse ||--}o LessonProgress : ""
+	LessonProgress o|--}o UserOption : ""
+	Option ||--}o QuestionBank : ""
+	Option ||--}o UserOption : ""
+	Quiz ||--}o QuestionBank : ""
+	QuestionBank ||--}o UserOption : ""
+	Role o|--}o User : ""
+	User o|--}o UserCourse : ""
+	User o|..}o Course : ""
+	UserCourse o|--}o UserOption : ""
