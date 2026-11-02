@@ -3,10 +3,14 @@ module Lesson::Operation
     step :fetch_lessons
     fail :handle_failure
 
-    def fetch_lessons(ctx, **)
-      ctx[:models] = Lesson.all.to_a
-      # .to_a executes the query and loads the records immediately,
-      # so database errors can be caught by the rescue block.
+    def fetch_lessons(ctx, params: {}, **)
+      lessons = Lesson.all
+
+      if params[:course_id].present?
+        lessons = lessons.where(course_id: params[:course_id])
+      end
+
+      ctx[:models] = lessons.to_a
       true
     end
 

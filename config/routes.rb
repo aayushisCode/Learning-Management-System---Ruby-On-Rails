@@ -9,7 +9,12 @@ Rails.application.routes.draw do
   # root "posts#index"
   resources :users
   resources :categories
-  resources :courses
-  resources :lessons
-  resources :quizzes
+  resources :courses do
+    resources :lessons, only: [ :index, :show, :create, :update, :destroy ]
+    resources :quizzes, only: [ :index, :show, :create, :update, :destroy ]
+  end
+  resources :lessons, only: [ :index, :show, :create, :update, :destroy ]
+  resources :quizzes, only: [ :index, :show, :create, :update, :destroy ]
+  resources :question_banks, only: [ :index, :show, :create, :update, :destroy ]
+  resources :user_courses, only: [ :index, :show, :create, :update, :destroy ]
 end
