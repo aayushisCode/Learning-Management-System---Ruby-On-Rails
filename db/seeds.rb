@@ -18,7 +18,7 @@ puts "Roles Created"
 category_data = {
   "Motor Insurance"=>"Training for motor insurance products, premiums and claims",
   "Health Insurance"=> "Training for health insurance products and claims",
-  "Life Insurance"=> "raining for life insurance products and operations."
+  "Life Insurance"=> "Training for life insurance products and operations."
 }
 categories={}
 
