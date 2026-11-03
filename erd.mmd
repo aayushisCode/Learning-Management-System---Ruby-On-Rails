@@ -41,8 +41,11 @@ erDiagram
 		string name
 	}
 	User {
+		text address
+		string contact
 		string email
-		string password
+		string name
+		string password_digest
 	}
 	UserCourse {
 		datetime assigned_at
@@ -59,17 +62,17 @@ erDiagram
 	Category ||--}o QuestionBank : ""
 	Course ||--}o Lesson : ""
 	Course ||--}o UserCourse : ""
+	Course o|..}o User : ""
 	Course o|--}o Quiz : ""
-	Course ||--}o QuestionBank : ""
 	Lesson ||--}o LessonProgress : ""
 	Lesson o|--}o Quiz : ""
 	UserCourse ||--}o LessonProgress : ""
 	LessonProgress o|--}o UserOption : ""
 	Option ||--}o QuestionBank : ""
 	Option ||--}o UserOption : ""
+	Course ||--}o QuestionBank : ""
 	Quiz ||--}o QuestionBank : ""
 	QuestionBank ||--}o UserOption : ""
 	Role o|--}o User : ""
-	User o|--}o UserCourse : ""
-	User o|..}o Course : ""
+	User ||--}o UserCourse : ""
 	UserCourse o|--}o UserOption : ""

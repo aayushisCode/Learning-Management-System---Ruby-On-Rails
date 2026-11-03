@@ -51,6 +51,7 @@ group :development, :test do
   gem "faker"
 
   gem "rails-erd"
+  gem "ruby-graphviz"
   gem "bcrypt"
 
   gem "trailblazer" # business workflow
