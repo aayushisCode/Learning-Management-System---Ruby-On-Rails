@@ -1,21 +1,36 @@
 class Quiz < ApplicationRecord
-  belongs_to :courses
+  belongs_to :course
   belongs_to :lesson, optional: true
 
-  has_many :question_banks
-  validates :title, presence: true
-  validates :quiz_type, inclusion: { in: %w[lesson final] }
-  validates :pass_marks,
-            numericality: { only_integer: true, greater_than_or_equal_to: 0 }
+  has_many :question_banks, dependent: :restrict_with_error
+  has_many :user_quizzes, dependent: :restrict_with_error
 
-  validate :lesson_must_match_course
+  validates :title, presence: true
+
+  validates :quiz_type,
+            presence: true,
+            inclusion: { in: %w[lesson final] }
+
+  validates :pass_marks,
+            numericality: {
+              only_integer: true,
+              greater_than_or_equal_to: 0
+            }
+
+  validate :lesson_must_match_quiz_type
 
   private
 
-  def lesson_must_match_course
-    return unless quiz_type == "lesson" && lesson.present?
-    return if lesson.course_id == course_id
+  def lesson_must_match_quiz_type
+    if quiz_type == "lesson"
+      if lesson.blank?
+        errors.add(:lesson, "must be present for a lesson quiz")
+      elsif lesson.course_id != course_id
+        errors.add(:lesson, "must belong to the selected course")
+      end
 
-    errors.add(:lesson, "must belong to the selected course")
+    elsif quiz_type == "final" && lesson.present?
+      errors.add(:lesson, "must be absent for a final quiz")
+    end
   end
 end

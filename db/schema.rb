@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_30_075902) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_03_115621) do
   create_table "categories", force: :cascade do |t|
     t.string "category_name"
     t.string "description"
@@ -34,10 +34,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_30_075902) do
     t.string "status", default: "not_started", null: false
     t.datetime "started_at"
     t.datetime "completed_at"
-    t.integer "quiz_attempts", default: 0, null: false
-    t.decimal "quiz_score", precision: 6, scale: 2
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "completed_pages", default: 0, null: false
+    t.integer "total_pages", default: 0, null: false
+    t.decimal "progress_percentage", precision: 5, scale: 2, default: "0.0", null: false
     t.index ["lesson_id"], name: "index_lesson_progresses_on_lesson_id"
     t.index ["user_course_id", "lesson_id"], name: "index_lesson_progresses_on_user_course_id_and_lesson_id", unique: true
     t.index ["user_course_id"], name: "index_lesson_progresses_on_user_course_id"
@@ -75,10 +76,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_30_075902) do
     t.integer "position", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "status", default: "active", null: false
     t.index ["category_id"], name: "index_question_banks_on_category_id"
     t.index ["course_id"], name: "index_question_banks_on_course_id"
     t.index ["quiz_id"], name: "index_question_banks_on_quiz_id"
-    t.check_constraint "question_type IN ('mcq', 'true_false', 'msq')", name: "questions_valid_type"
+    t.check_constraint "question_type IN ('mcq', 'true_false')", name: "questions_valid_type"
+    t.check_constraint "status IN ('active', 'inactive')", name: "questions_valid_status"
   end
 
   create_table "quizzes", force: :cascade do |t|
@@ -111,10 +114,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_30_075902) do
     t.datetime "assigned_at"
     t.date "due_date"
     t.datetime "completed_at"
-    t.integer "final_quiz_attempts", default: 0, null: false
-    t.decimal "final_quiz_score", precision: 6, scale: 2
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.decimal "progress_percentage", precision: 5, scale: 2, default: "0.0", null: false
+    t.integer "completed_lessons", default: 0, null: false
+    t.integer "total_lessons", default: 0, null: false
     t.index ["assigned_by_id"], name: "index_user_courses_on_assigned_by_id"
     t.index ["course_id"], name: "index_user_courses_on_course_id"
     t.index ["user_id", "course_id"], name: "index_user_courses_on_user_id_and_course_id", unique: true
@@ -122,18 +126,33 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_30_075902) do
   end
 
   create_table "user_options", force: :cascade do |t|
-    t.integer "user_course_id"
-    t.integer "lesson_progress_id"
     t.integer "question_id", null: false
     t.integer "option_id", null: false
-    t.integer "attempt_number", default: 1, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["lesson_progress_id"], name: "index_user_options_on_lesson_progress_id"
+    t.integer "user_quiz_id", null: false
     t.index ["option_id"], name: "index_user_options_on_option_id"
     t.index ["question_id"], name: "index_user_options_on_question_id"
-    t.index ["user_course_id"], name: "index_user_options_on_user_course_id"
-    t.check_constraint "(user_course_id IS NOT NULL AND lesson_progress_id IS NULL) OR (user_course_id IS NULL AND lesson_progress_id IS NOT NULL)", name: "user_options_one_quiz_context"
+    t.index ["user_quiz_id", "question_id"], name: "index_user_options_on_quiz_and_question", unique: true
+    t.index ["user_quiz_id"], name: "index_user_options_on_user_quiz_id"
+  end
+
+  create_table "user_quizzes", force: :cascade do |t|
+    t.integer "user_course_id", null: false
+    t.integer "quiz_id", null: false
+    t.integer "attempt_number", default: 1, null: false
+    t.decimal "score", precision: 8, scale: 2
+    t.decimal "total_marks", precision: 8, scale: 2
+    t.decimal "percentage", precision: 5, scale: 2
+    t.string "status", default: "in_progress", null: false
+    t.string "result"
+    t.datetime "started_at"
+    t.datetime "submitted_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["quiz_id"], name: "index_user_quizzes_on_quiz_id"
+    t.index ["user_course_id", "quiz_id", "attempt_number"], name: "index_user_quizzes_on_course_quiz_attempt", unique: true
+    t.index ["user_course_id"], name: "index_user_quizzes_on_user_course_id"
   end
 
   create_table "users", force: :cascade do |t|
@@ -162,9 +181,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_30_075902) do
   add_foreign_key "user_courses", "courses"
   add_foreign_key "user_courses", "users"
   add_foreign_key "user_courses", "users", column: "assigned_by_id"
-  add_foreign_key "user_options", "lesson_progresses"
   add_foreign_key "user_options", "options"
   add_foreign_key "user_options", "question_banks", column: "question_id"
-  add_foreign_key "user_options", "user_courses"
+  add_foreign_key "user_options", "user_quizzes"
+  add_foreign_key "user_quizzes", "quizzes"
+  add_foreign_key "user_quizzes", "user_courses"
   add_foreign_key "users", "roles"
 end

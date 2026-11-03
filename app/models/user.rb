@@ -4,6 +4,7 @@ class User < ApplicationRecord
 
   has_many :user_courses
   has_many :courses, through: :user_courses
+  has_many :user_quizzes, through: :user_courses
 
   has_many :assigned_user_courses, class_name: "UserCourse", foreign_key: :assigned_by_id
 
