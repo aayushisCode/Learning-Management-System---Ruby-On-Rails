@@ -17,4 +17,10 @@ Rails.application.routes.draw do
   resources :quizzes, only: [ :index, :show, :create, :update, :destroy ]
   resources :question_banks, only: [ :index, :show, :create, :update, :destroy ]
   resources :user_courses, only: [ :index, :show, :create, :update, :destroy ]
+
+  get "user_courses/:user_course_id/lessons/:lesson_id/next_page",
+    to: "lesson_progresses#next_page"
+
+  post "user_courses/:user_course_id/lessons/:lesson_id/complete_page",
+      to: "lesson_progresses#complete_page"
 end
