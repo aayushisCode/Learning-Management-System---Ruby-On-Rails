@@ -1,0 +1,95 @@
+LMS – Progress Calculation Implementation Summary
+Here is what we have implemented so far.
+1. Database and Models
+- Added pages JSON column to the lessons table.
+- Stored lesson documentation as pages containing title and content.
+- LessonProgress tracks:
+  - Total pages
+  - Completed pages
+  - Progress percentage
+  - Status
+- UserCourse tracks overall course progress.
+2. Trailblazer Operations
+LessonProgress::Operation::NextPage
+- Finds the learner's course assignment.
+- Finds the lesson progress.
+- Checks whether previous lessons are completed.
+- Fetches the next available page.
+- Prevents fetching pages after completion.
+LessonProgress::Operation::CompletePage
+- Finds the learner's assignment and lesson progress.
+- Checks previous lesson completion.
+- Validates page number.
+- Prevents skipping pages or completing the same page twice.
+- Updates completed page count.
+- Calls the progress calculation service.
+3. Progress Services
+Created three service classes inside app/services/progress/:
+Service	Responsibility
+LessonCalculator	Calculates individual lesson progress and status.
+CourseCalculator	Calculates overall course progress and status.
+Updater	Coordinates both calculations and saves updated records.
+
+4. Progress Calculation Logic
+- Lesson progress is calculated using completed pages and passed lesson quizzes.
+- Course progress is calculated using completed pages and passed quizzes.
+- Course status is maintained as:
+  - assigned
+  - in_progress
+  - completed
+- Lesson status is maintained as:
+  - not_started
+  - in_progress
+  - completed
+- Completed lesson count is updated automatically.
+5. Controller – LessonProgressesController
+Implemented two API actions:
+- next_page – returns the next documentation page.
+- complete_page – completes a page and returns updated lesson and course progress.
+Both actions call Trailblazer operations and return JSON responses.
+6. Routes
+Configured:
+GET  /user_courses/:user_course_id/lessons/:lesson_id/next_page
+
+POST /user_courses/:user_course_id/lessons/:lesson_id/complete_page
+
+
+7. Testing and Verification
+- bin/rails zeitwerk:check passed.
+- Routes verified successfully.
+- Tested fetching the next page.
+- Tested completing a page.
+- Verified lesson progress: 33.33%.
+- Verified course progress: 11.11%.
+- Verified course status changes to in_progress.
+
+Overall architecture
+LessonProgressesController
+
+Receives API requests and returns JSON
+
+Trailblazer Operations
+
+NextPage / CompletePage
+
+Progress::Updater
+
+Coordinates progress recalculation
+
+LessonCalculator
+
+Lesson progress
+
+
+CourseCalculator
+
+Course progress
+
+
+
+Database
+
+LessonProgress and UserCourse records updated
+
+
+Important: Quiz-related calculation logic is already included in the services, but we haven't yet tested it with actual quiz attempts.
