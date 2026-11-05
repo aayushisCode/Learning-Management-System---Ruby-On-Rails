@@ -10,7 +10,7 @@ module Category::Operation
 
       true
     end
-
+    # update category with the provided parameters
     def update_category(ctx, category_params:, **)
       if ctx[:model].update(category_params)
         true
