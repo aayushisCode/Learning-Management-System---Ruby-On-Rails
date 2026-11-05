@@ -1,0 +1,22 @@
+module Quiz::Operation
+  class Show < Trailblazer::Operation
+    step :find_quiz
+    fail :handle_failure
+
+    def find_quiz(ctx, params:, **)
+      ctx[:model] = Quiz.find_by(id: params[:id])
+
+      unless ctx[:model]
+        ctx[:error] = "Quiz not found"
+        return false
+      end
+
+      true
+    end
+
+    def handle_failure(ctx, **)
+      ctx[:error] ||= "Unable to fetch quiz"
+      true
+    end
+  end
+end

@@ -21,7 +21,7 @@ class UserCourse < ApplicationRecord
              optional: true
 
   has_many :lesson_progresses, dependent: :destroy
-  has_many :user_quizzes, dependent: :destroy
+  has_many :user_quizzes, dependent: :restrict_with_error
 
   validates :status,
             presence: true,

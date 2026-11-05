@@ -15,12 +15,28 @@ Rails.application.routes.draw do
   end
   resources :lessons, only: [ :index, :show, :create, :update, :destroy ]
   resources :quizzes, only: [ :index, :show, :create, :update, :destroy ]
-  resources :question_banks, only: [ :index, :show, :create, :update, :destroy ]
+  resources :questions, only: [ :index, :show, :create, :update, :destroy ]
   resources :user_courses, only: [ :index, :show, :create, :update, :destroy ]
 
+  # ── Lesson progress (learner) ─────────────────────────────────────────────
   get "user_courses/:user_course_id/lessons/:lesson_id/next_page",
     to: "lesson_progresses#next_page"
 
   post "user_courses/:user_course_id/lessons/:lesson_id/complete_page",
       to: "lesson_progresses#complete_page"
+
+  # ── Quiz attempts (learner) ────────────────────────────────────────────────
+  # Start:   POST /user_courses/:user_course_id/quizzes/:quiz_id/start
+  # Quiz attempts handled by QuizzesController
+  post "user_courses/:user_course_id/quizzes/:quiz_id/start",
+      to: "quizzes#start"
+
+  get "user_quizzes/:id",
+      to: "quizzes#attempt"
+
+  post "user_quizzes/:id/answer",
+      to: "quizzes#answer"
+
+  post "user_quizzes/:id/submit",
+      to: "quizzes#submit"
 end

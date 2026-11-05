@@ -5,7 +5,7 @@ module Lesson::Operation
     fail :handle_failure
 
     def find_lesson(ctx, params:, **)
-      ctx[:model] = Lesson.find_by(id: params[:id], course_id: params[:course_id])
+      ctx[:model] = Lesson.find_by(id: params[:id])
 
       if ctx[:model]
         true

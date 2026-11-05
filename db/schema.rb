@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_04_075231) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_05_122724) do
   create_table "categories", force: :cascade do |t|
     t.string "category_name"
     t.string "description"
@@ -66,7 +66,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_04_075231) do
     t.index ["question_id"], name: "index_options_on_question_id"
   end
 
-  create_table "question_banks", force: :cascade do |t|
+  create_table "questions", force: :cascade do |t|
     t.integer "category_id", null: false
     t.integer "course_id", null: false
     t.integer "quiz_id", null: false
@@ -78,10 +78,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_04_075231) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "status", default: "active", null: false
-    t.index ["category_id"], name: "index_question_banks_on_category_id"
-    t.index ["course_id"], name: "index_question_banks_on_course_id"
-    t.index ["quiz_id"], name: "index_question_banks_on_quiz_id"
-    t.check_constraint "question_type IN ('mcq', 'true_false')", name: "questions_valid_type"
+    t.index ["category_id"], name: "index_questions_on_category_id"
+    t.index ["course_id"], name: "index_questions_on_course_id"
+    t.index ["quiz_id"], name: "index_questions_on_quiz_id"
+    t.check_constraint "question_type IN ('mcq', 'boolean')", name: "questions_valid_type"
     t.check_constraint "status IN ('active', 'inactive')", name: "questions_valid_status"
   end
 
@@ -134,6 +134,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_04_075231) do
     t.integer "user_quiz_id", null: false
     t.index ["option_id"], name: "index_user_options_on_option_id"
     t.index ["question_id"], name: "index_user_options_on_question_id"
+    t.index ["user_quiz_id", "question_id"], name: "index_user_options_on_attempt_and_question", unique: true
     t.index ["user_quiz_id", "question_id"], name: "index_user_options_on_quiz_and_question", unique: true
     t.index ["user_quiz_id"], name: "index_user_options_on_user_quiz_id"
   end
@@ -172,18 +173,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_04_075231) do
   add_foreign_key "lesson_progresses", "lessons"
   add_foreign_key "lesson_progresses", "user_courses"
   add_foreign_key "lessons", "courses"
-  add_foreign_key "options", "question_banks", column: "question_id"
-  add_foreign_key "question_banks", "categories"
-  add_foreign_key "question_banks", "courses"
-  add_foreign_key "question_banks", "options", column: "correct_option_id"
-  add_foreign_key "question_banks", "quizzes"
+  add_foreign_key "options", "questions"
+  add_foreign_key "questions", "categories"
+  add_foreign_key "questions", "courses"
+  add_foreign_key "questions", "options", column: "correct_option_id"
+  add_foreign_key "questions", "quizzes"
   add_foreign_key "quizzes", "courses"
   add_foreign_key "quizzes", "lessons"
   add_foreign_key "user_courses", "courses"
   add_foreign_key "user_courses", "users"
   add_foreign_key "user_courses", "users", column: "assigned_by_id"
   add_foreign_key "user_options", "options"
-  add_foreign_key "user_options", "question_banks", column: "question_id"
+  add_foreign_key "user_options", "questions"
   add_foreign_key "user_options", "user_quizzes"
   add_foreign_key "user_quizzes", "quizzes"
   add_foreign_key "user_quizzes", "user_courses"
