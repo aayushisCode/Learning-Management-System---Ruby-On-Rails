@@ -15,7 +15,6 @@ module Quiz::Operation
 
     def handle_failure(ctx, **)
       ctx[:error] ||= "Unable to fetch quizzes"
-      true
     end
   end
 end

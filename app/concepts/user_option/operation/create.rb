@@ -43,7 +43,6 @@ module UserOption::Operation
         ctx[:error] = "Question does not belong to this quiz"
         return false
       end
-
       true
     end
 
@@ -71,15 +70,12 @@ module UserOption::Operation
 
       unless ctx[:model].save
         ctx[:error] = ctx[:model].errors.full_messages
-        return false
+       false
       end
-
-      true
     end
 
     def handle_failure(ctx, **)
       ctx[:error] ||= "Unable to save answer"
-      true
     end
   end
 end

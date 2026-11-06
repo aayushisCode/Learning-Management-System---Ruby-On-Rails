@@ -26,7 +26,6 @@ module Quiz::Operation
 
     def handle_failure(ctx, **)
       ctx[:error] ||= "Unable to delete quiz"
-      true
     end
   end
 end

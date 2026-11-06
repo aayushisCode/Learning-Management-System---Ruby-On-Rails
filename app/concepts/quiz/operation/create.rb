@@ -22,7 +22,6 @@ module Quiz::Operation
 
     def handle_failure(ctx, **)
       ctx[:error] ||= ctx[:model]&.errors&.full_messages || "Unable to create quiz"
-      true
     end
 
     private

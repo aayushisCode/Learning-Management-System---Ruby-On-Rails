@@ -59,7 +59,7 @@ module UserQuiz::Operation
 
         unless lesson_progress
           ctx[:error] = "Complete the lesson before starting its quiz"
-          return false
+          false
         end
       elsif quiz.quiz_type == "final"
         unless all_lessons_completed?(user_course)
@@ -69,11 +69,9 @@ module UserQuiz::Operation
 
         unless all_lesson_quizzes_passed?(user_course)
           ctx[:error] = "Pass all lesson quizzes before starting the final quiz"
-          return false
+          false
         end
       end
-
-      true
     end
 
     def create_attempt(ctx, **)
@@ -101,7 +99,6 @@ module UserQuiz::Operation
 
     def handle_failure(ctx, **)
       ctx[:error] ||= "Unable to start quiz"
-      true
     end
 
     private
@@ -109,18 +106,13 @@ module UserQuiz::Operation
     def all_lessons_completed?(user_course)
       total_lessons = user_course.course.lessons.count
 
-      completed_lessons = user_course.lesson_progresses
-                                     .where(status: "completed")
-                                     .distinct
-                                     .count(:lesson_id)
+      completed_lessons = user_course.lesson_progresses.where(status: "completed").distinct.count(:lesson_id)
 
       completed_lessons == total_lessons
     end
 
     def all_lesson_quizzes_passed?(user_course)
-      lesson_quiz_ids = user_course.course.quizzes
-                                    .where(quiz_type: "lesson")
-                                    .pluck(:id)
+      lesson_quiz_ids = user_course.course.quizzes.where(quiz_type: "lesson").pluck(:id)
 
       lesson_quiz_ids.all? do |quiz_id|
         user_course.user_quizzes.exists?(
