@@ -1,15 +1,9 @@
+
 module Category::Operation
   class Destroy < Trailblazer::Operation
-    step :find_category
+    step Model(Category, :find_by)
     step :delete_category
     fail :handle_failure
-
-    def find_category(ctx, params:, **)
-      ctx[:model] = Category.find_by(id: params[:id])
-      return false unless ctx[:model]
-
-      true
-    end
 
     def delete_category(ctx, **)
       if ctx[:model].destroy
@@ -21,7 +15,17 @@ module Category::Operation
     end
 
     def handle_failure(ctx, **)
-      ctx[:error] ||= "Category deletion failed"
+      ctx[:error] = if ctx[:model].nil?
+        {
+          msg: "Category not found",
+          status: :not_found
+        }
+      else
+        {
+          msg: "Category deletion failed",
+          status: :unprocessable_entity
+        }
+      end
     end
   end
 end

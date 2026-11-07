@@ -1,22 +1,14 @@
 
 module Lesson::Operation
   class Show < Trailblazer::Operation
-    step :find_lesson
+    step Model(Lesson, :find_by, :model)
     fail :handle_failure
 
-    def find_lesson(ctx, params:, **)
-      ctx[:model] = Lesson.find_by(id: params[:id])
-
-      if ctx[:model]
-        true
-      else
-        ctx[:errors] = [ "Lesson not found" ]
-        false
-      end
-    end
-
     def handle_failure(ctx, **)
-      ctx[:error] = "Unable to fetch lesson"
+      ctx[:error] = {
+        msg: "Lesson not found",
+        status: :not_found
+      }
     end
   end
 end

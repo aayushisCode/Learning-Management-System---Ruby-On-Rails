@@ -1,110 +1,91 @@
 
 class QuizzesController < ApplicationController
   before_action :authenticate_user!
-
-  # Admin-only quiz management
   before_action :require_admin!, only: [ :create, :update, :destroy ]
 
   # GET /quizzes
   # GET /courses/:course_id/quizzes
   def index
-    result = Quiz::Operation::Index.call(params: params)
-
-    if result.success?
-      render json: result[:models].as_json(
-        only: [
-          :id, :course_id, :lesson_id, :title, :description,
-          :quiz_type, :pass_marks, :created_at, :updated_at
-        ]
-      ), status: :ok
-    else
-      render json: { error: result[:error] },
-             status: :internal_server_error
+    result = run Quiz::Operation::Index,
+                  with: { params: params } do |result|
+      return render json: {
+        data: result[:models].as_json(
+          only: [
+            :id, :course_id, :lesson_id, :title, :description,
+            :quiz_type, :pass_marks, :created_at, :updated_at
+          ]
+        )
+      }, status: :ok
     end
+
+    render_operation_error(result, default_status: :internal_server_error)
   end
 
   # GET /quizzes/:id
   def show
-    result = Quiz::Operation::Show.call(params: params)
-
-    if result.success?
-      render json: result[:model].as_json(
-        only: [
-          :id, :course_id, :lesson_id, :title, :description,
-          :quiz_type, :pass_marks, :created_at, :updated_at
-        ],
-        include: {
-          questions: {
-            only: [
-              :id, :question_text, :question_type,
-              :marks, :position, :status
-            ],
-            include: {
-              options: {
-                only: [ :id, :option_text, :position ]
+    result = run Quiz::Operation::Show,
+                  with: { params: params } do |result|
+      return render json: {
+        data: result[:model].as_json(
+          only: [
+            :id, :course_id, :lesson_id, :title, :description,
+            :quiz_type, :pass_marks, :created_at, :updated_at
+          ],
+          include: {
+            questions: {
+              only: [
+                :id, :question_text, :question_type,
+                :marks, :position, :status
+              ],
+              include: {
+                options: {
+                  only: [ :id, :option_text, :position ]
+                }
               }
             }
           }
-        }
-      ), status: :ok
-    else
-      render json: { error: result[:error] }, status: :not_found
+        )
+      }, status: :ok
     end
+
+    render_operation_error(result, default_status: :not_found)
   end
 
   # POST /quizzes
   def create
-    result = Quiz::Operation::Create.call(
-      quiz_params: quiz_params
-    )
-
-    if result.success?
-      render json: result[:model],
-             status: :created
-    else
-      render json: {
-        errors: result[:errors],
-        error: result[:error]
-      }, status: :unprocessable_entity
+    result = run Quiz::Operation::Create,
+                  with: { quiz_params: quiz_params } do |result|
+      return render json: {
+        data: result[:model]
+      }, status: :created
     end
+
+    render_operation_error(result)
   end
 
   # PATCH /quizzes/:id
   def update
-    result = Quiz::Operation::Update.call(
-      params: params,
-      quiz_params: quiz_params
-    )
-
-    if result.success?
-      render json: result[:model],
-             status: :ok
-    else
-      status = result[:error]&.include?("not found") ?
-                 :not_found : :unprocessable_entity
-
-      render json: {
-        errors: result[:errors],
-        error: result[:error]
-      }, status: status
+    result = run Quiz::Operation::Update,
+                  with: {
+                    params: params,
+                    quiz_params: quiz_params
+                  } do |result|
+      return render json: {
+        data: result[:model]
+      }, status: :ok
     end
+
+    render_operation_error(result)
   end
 
   # DELETE /quizzes/:id
   def destroy
-    result = Quiz::Operation::Destroy.call(params: params)
-
-    if result.success?
-      head :no_content
-    else
-      status = result[:error]&.include?("not found") ?
-                 :not_found : :unprocessable_entity
-
-      render json: {
-        error: result[:error],
-        errors: result[:errors]
-      }, status: status
+    result = run Quiz::Operation::Destroy,
+                  with: { params: params } do |_result|
+      return head :no_content
     end
+
+    render_operation_error(result, default_status: :not_found)
   end
 
   # ==========================================
@@ -113,28 +94,33 @@ class QuizzesController < ApplicationController
 
   # POST /user_courses/:user_course_id/quizzes/:quiz_id/start
   def start
-    result = UserQuiz::Operation::Start.call(
-      current_user: current_user,
-      params: params
-    )
-
-    if result.success?
-      render json: {
+    result = run UserQuiz::Operation::Start,
+                  with: {
+                    current_user: current_user,
+                    params: params
+                  } do |result|
+      return render json: {
         message: "Quiz started",
         user_quiz_id: result[:model].id,
         attempt_number: result[:model].attempt_number,
         started_at: result[:model].started_at
       }, status: :created
-    else
-      body = { error: result[:error] }
-      body[:user_quiz_id] = result[:model].id if result[:model]
-
-      render json: body, status: :unprocessable_entity
     end
+
+    body = { error: result[:error] }
+
+    body[:user_quiz_id] = result[:model].id if result[:model]
+
+    render json: body,
+           status: result[:error].is_a?(Hash) ?
+             result[:error][:code] : :unprocessable_entity
   end
 
   # GET /user_quizzes/:id
   # View a learner's quiz attempt
+  #
+  # NOTE: This action currently has no Trailblazer operation.
+  # Keep its existing implementation until an Attempt operation is created.
   def attempt
     attempt = UserQuiz.includes(
       :quiz,
@@ -178,54 +164,40 @@ class QuizzesController < ApplicationController
 
   # POST /user_quizzes/:id/answer
   def answer
-    result = UserOption::Operation::Create.call(
-      current_user: current_user,
-      params: params,
-      answer_params: answer_params
-    )
-
-    if result.success?
-      render json: {
+    result = run UserOption::Operation::Create,
+                  with: {
+                    current_user: current_user,
+                    params: params,
+                    answer_params: answer_params
+                  } do |result|
+      return render json: {
         message: "Answer recorded",
         user_option: result[:model].as_json(
           only: [ :id, :question_id, :option_id ]
         )
       }, status: :created
-    else
-      status = result[:error]&.include?("not found") ?
-                 :not_found : :unprocessable_entity
-
-      render json: {
-        error: result[:error],
-        errors: result[:errors]
-      }, status: status
     end
+
+    render_operation_error(result)
   end
 
   # POST /user_quizzes/:id/submit
   def submit
-    result = UserQuiz::Operation::Submit.call(
-      current_user: current_user,
-      params: params
-    )
-
-    if result.success?
-      render json: {
+    result = run UserQuiz::Operation::Submit,
+                  with: {
+                    current_user: current_user,
+                    params: params
+                  } do |result|
+      return render json: {
         message: "Quiz submitted",
         score: result[:score],
         total_marks: result[:total_marks],
         percentage: result[:percentage],
         result: result[:result]
       }, status: :ok
-    else
-      status = result[:error]&.include?("not found") ?
-                 :not_found : :unprocessable_entity
-
-      render json: {
-        error: result[:error],
-        errors: result[:errors]
-      }, status: status
     end
+
+    render_operation_error(result)
   end
 
   private

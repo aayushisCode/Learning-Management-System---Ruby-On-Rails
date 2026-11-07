@@ -1,3 +1,4 @@
+# LessonProgress module
 module LessonProgress::Operation
   class CompletePage < Trailblazer::Operation
     step :find_assignment
@@ -14,7 +15,10 @@ module LessonProgress::Operation
 
       return true if ctx[:user_course]
 
-      ctx[:error] = "Course assignment not found"
+      ctx[:error] = {
+        msg: "Course assignment not found",
+        status: :not_found
+      }
       false
     end
 
@@ -26,7 +30,10 @@ module LessonProgress::Operation
 
       return true if ctx[:lesson_progress]
 
-      ctx[:error] = "Lesson progress not found"
+      ctx[:error] = {
+        msg: "Lesson progress not found",
+        status: :not_found
+      }
       false
     end
 
@@ -42,7 +49,10 @@ module LessonProgress::Operation
 
       return true unless previous_incomplete
 
-      ctx[:error] = "Complete previous lessons first"
+      ctx[:error] = {
+        msg: "Complete previous lessons first",
+        status: :unprocessable_entity
+      }
       false
     end
 
@@ -50,26 +60,34 @@ module LessonProgress::Operation
       progress = ctx[:lesson_progress]
 
       UserCourse.transaction do
-        result = progress.with_lock do
+        progress.with_lock do
           pages = progress.lesson.pages || []
 
           if pages.empty?
-            ctx[:error] = "This lesson has no documentation pages"
+            ctx[:error] = {
+              msg: "This lesson has no documentation pages",
+              status: :unprocessable_entity
+            }
             next false
           end
 
           requested_page = Integer(page_number.to_s, 10)
 
           if requested_page < 1 || requested_page > pages.size
-            ctx[:error] = "Page does not exist"
+            ctx[:error] = {
+              msg: "Page does not exist",
+              status: :unprocessable_entity
+            }
             next false
           end
 
           expected_page = progress.completed_pages + 1
 
           if requested_page != expected_page
-            ctx[:error] =
-              "Invalid page. Complete page #{expected_page} first."
+            ctx[:error] = {
+              msg: "Invalid page. Complete page #{expected_page} first.",
+              status: :unprocessable_entity
+            }
             next false
           end
 
@@ -78,26 +96,33 @@ module LessonProgress::Operation
             total_pages: pages.size
           )
 
-          # Recalculate lesson and course progress
           Progress::Updater.call(
             user_course: ctx[:user_course]
           )
 
           true
         end
-
-        result
       end
     rescue ArgumentError, TypeError
-      ctx[:error] = "Invalid page number"
+      ctx[:error] = {
+        msg: "Invalid page number",
+        status: :unprocessable_entity
+      }
       false
     rescue ActiveRecord::RecordInvalid => e
-      ctx[:error] = e.record.errors.full_messages
+      ctx[:errors] = e.record.errors.full_messages
+      ctx[:error] = {
+        msg: "Unable to complete page",
+        status: :unprocessable_entity
+      }
       false
     end
 
     def handle_failure(ctx, **)
-      ctx[:error] ||= "Unable to complete page"
+      ctx[:error] ||= {
+        msg: "Unable to complete page",
+        status: :internal_server_error
+      }
     end
   end
 end

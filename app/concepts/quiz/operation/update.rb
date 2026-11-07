@@ -1,25 +1,15 @@
+
 module Quiz::Operation
   class Update < Trailblazer::Operation
-    step :find_quiz
+    step Model(Quiz, :find_by)
     step :update_quiz
     fail :handle_failure
-
-    def find_quiz(ctx, params:, **)
-      ctx[:model] = Quiz.find_by(id: params[:id])
-
-      unless ctx[:model]
-        ctx[:error] = "Quiz not found"
-        return false
-      end
-
-      true
-    end
 
     def update_quiz(ctx, params:, **)
       attributes = permitted_attributes(params)
 
       unless ctx[:model].update(attributes)
-        ctx[:error] = ctx[:model].errors.full_messages
+        ctx[:errors] = ctx[:model].errors.full_messages
         return false
       end
 
@@ -27,7 +17,17 @@ module Quiz::Operation
     end
 
     def handle_failure(ctx, **)
-      ctx[:error] ||= ctx[:model]&.errors&.full_messages || "Unable to update quiz"
+      ctx[:error] ||= if ctx[:model].nil?
+        {
+          msg: "Quiz not found",
+          status: :not_found
+        }
+      else
+        {
+          msg: "Unable to update quiz",
+          status: :unprocessable_entity
+        }
+      end
     end
 
     private

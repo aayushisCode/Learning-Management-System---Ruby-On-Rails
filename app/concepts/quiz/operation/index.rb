@@ -1,3 +1,4 @@
+
 module Quiz::Operation
   class Index < Trailblazer::Operation
     step :fetch_quizzes
@@ -11,10 +12,16 @@ module Quiz::Operation
 
       ctx[:models] = quizzes.includes(:course, :lesson).order(:id).to_a
       true
+    rescue StandardError => e
+      Rails.logger.error("Quiz Index Error: #{e.full_message}")
+      false
     end
 
     def handle_failure(ctx, **)
-      ctx[:error] ||= "Unable to fetch quizzes"
+      ctx[:error] ||= {
+        msg: "Unable to fetch quizzes",
+        status: :internal_server_error
+      }
     end
   end
 end

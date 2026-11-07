@@ -1,105 +1,69 @@
+
 class LessonsController < ApplicationController
   def index
-    result = Lesson::Operation::Index.call(params: params)
-
-    if result.success?
-      render json: result[:models].as_json(
-        only: [
-          :id,
-          :course_id,
-          :title,
-          :content_type,
-          :position,
-          :created_at,
-          :updated_at
-        ]
-      ), status: :ok
-    else
-      render json: { error: result[:error] },
-             status: :internal_server_error
+    result = run Lesson::Operation::Index,
+                  with: { params: params } do |result|
+      return render json: {
+        data: result[:models].as_json(
+          only: [
+            :id, :course_id, :title, :content_type,
+            :position, :created_at, :updated_at
+          ]
+        )
+      }, status: :ok
     end
+
+    render_operation_error(result, default_status: :internal_server_error)
   end
 
-
   def create
-    result = Lesson::Operation::Create.call(
-      lesson_params: lesson_params
-    )
-
-    if result.success?
-      render json: result[:model], status: :created
-    else
-      render json: {
-        error: result[:error],
-        errors: result[:errors]
-      }, status: :unprocessable_entity
+    result = run Lesson::Operation::Create,
+                  with: { lesson_params: lesson_params } do |result|
+      return render json: { data: result[:model] }, status: :created
     end
+
+    render_operation_error(result)
   end
 
   # GET /lessons/:id
   def show
-    result = Lesson::Operation::Show.call(params: params)
-
-    if result.success?
-      render json: result[:model].as_json(
-        only: [
-          :id,
-          :course_id,
-          :title,
-          :content_type,
-          :position,
-          :created_at,
-          :updated_at
-        ]
-      ), status: :ok
-    else
-      status = result[:errors]&.include?("Lesson not found") ?
-                 :not_found : :internal_server_error
-
-      render json: {
-        error: result[:error],
-        errors: result[:errors]
-      }, status: status
+    result = run Lesson::Operation::Show,
+                  with: { params: params } do |result|
+      return render json: {
+        data: result[:model].as_json(
+          only: [
+            :id, :course_id, :title, :content_type,
+            :position, :created_at, :updated_at
+          ]
+        )
+      }, status: :ok
     end
+
+    render_operation_error(result, default_status: :not_found)
   end
 
   # PATCH /lessons/:id
   def update
-    result = Lesson::Operation::Update.call(
-      params: params,
-      lesson_params: lesson_params
-    )
-
-    if result.success?
-      render json: result[:model], status: :ok
-    else
-      status = result[:errors]&.include?("Lesson not found") ?
-                 :not_found : :unprocessable_entity
-
-      render json: {
-        error: result[:error],
-        errors: result[:errors]
-      }, status: status
+    result = run Lesson::Operation::Update,
+                  with: {
+                    params: params,
+                    lesson_params: lesson_params
+                  } do |result|
+      return render json: { data: result[:model] }, status: :ok
     end
+
+    render_operation_error(result)
   end
 
   # DELETE /lessons/:id
   def destroy
-    result = Lesson::Operation::Destroy.call(params: params)
-
-    if result.success?
-      head :no_content
-    else
-      status = result[:errors]&.include?("Lesson not found") ?
-                 :not_found : :unprocessable_entity
-
-      render json: {
-        error: result[:error],
-        errors: result[:errors]
-      }, status: status
+    result = run Lesson::Operation::Destroy,
+                  with: { params: params } do |_result|
+      return head :no_content
     end
-  end
 
+    render_operation_error(result, default_status: :not_found)
+  end
 
   private
 

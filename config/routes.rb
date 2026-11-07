@@ -21,7 +21,8 @@ Rails.application.routes.draw do
   # ── Lesson progress (learner) ─────────────────────────────────────────────
   get "user_courses/:user_course_id/lessons/:lesson_id/next_page",
     to: "lesson_progresses#next_page"
-
+  get "user_courses/:user_course_id/lessons/:lesson_id/prev_page",
+    to: "lesson_progresses#prev_page"
   post "user_courses/:user_course_id/lessons/:lesson_id/complete_page",
       to: "lesson_progresses#complete_page"
 

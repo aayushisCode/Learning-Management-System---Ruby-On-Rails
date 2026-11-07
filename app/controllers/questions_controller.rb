@@ -5,112 +5,107 @@ class QuestionsController < ApplicationController
 
   # GET /questions
   def index
-    result = Question::Operation::Index.call(params: params)
-
-    if result.success?
-      render json: result[:models].as_json(
-        only: [
-          :id, :category_id, :course_id, :quiz_id, :question_text,
-          :question_type, :correct_option_id, :marks, :position,
-          :status, :created_at, :updated_at
-        ],
-        include: {
-          options: { only: [ :id, :option_text, :position ] }
-        }
-      ), status: :ok
-    else
-      render json: { error: result[:error] }, status: :internal_server_error
+    result = run Question::Operation::Index,
+                  with: { params: params } do |result|
+      return render json: {
+        data: result[:models].as_json(
+          only: [
+            :id, :category_id, :course_id, :quiz_id,
+            :question_text, :question_type, :correct_option_id,
+            :marks, :position, :status, :created_at, :updated_at
+          ],
+          include: {
+            options: {
+              only: [ :id, :option_text, :position ]
+            }
+          }
+        )
+      }, status: :ok
     end
+
+    render_operation_error(result, default_status: :internal_server_error)
   end
 
   # GET /questions/:id
   def show
-    result = Question::Operation::Show.call(params: params)
-
-    if result.success?
-      render json: result[:model].as_json(
-        only: [
-          :id, :category_id, :course_id, :quiz_id, :question_text,
-          :question_type, :correct_option_id, :marks, :position,
-          :status, :created_at, :updated_at
-        ],
-        include: {
-          options: { only: [ :id, :option_text, :position ] }
-        }
-      ), status: :ok
-    else
-      render json: { error: result[:error] }, status: :not_found
+    result = run Question::Operation::Show,
+                  with: { params: params } do |result|
+      return render json: {
+        data: result[:model].as_json(
+          only: [
+            :id, :category_id, :course_id, :quiz_id,
+            :question_text, :question_type, :correct_option_id,
+            :marks, :position, :status, :created_at, :updated_at
+          ],
+          include: {
+            options: {
+              only: [ :id, :option_text, :position ]
+            }
+          }
+        )
+      }, status: :ok
     end
+
+    render_operation_error(result, default_status: :not_found)
   end
 
   # POST /questions
-  # Body: { question: { ..., options_attributes: [...], correct_option_position: N } }
   def create
-    result = Question::Operation::Create.call(
-      question_params: question_params
-    )
-
-    if result.success?
-      render json: result[:model].as_json(
-        only: [
-          :id, :category_id, :course_id, :quiz_id, :question_text,
-          :question_type, :correct_option_id, :marks, :position,
-          :status, :created_at, :updated_at
-        ],
-        include: {
-          options: { only: [ :id, :option_text, :position ] }
-        }
-      ), status: :created
-    else
-      render json: {
-        errors: result[:errors],
-        error: result[:error]
-      }, status: :unprocessable_entity
+    result = run Question::Operation::Create,
+                  with: { question_params: question_params } do |result|
+      return render json: {
+        data: result[:model].as_json(
+          only: [
+            :id, :category_id, :course_id, :quiz_id,
+            :question_text, :question_type, :correct_option_id,
+            :marks, :position, :status, :created_at, :updated_at
+          ],
+          include: {
+            options: {
+              only: [ :id, :option_text, :position ]
+            }
+          }
+        )
+      }, status: :created
     end
+
+    render_operation_error(result)
   end
 
   # PATCH /questions/:id
   def update
-    result = Question::Operation::Update.call(
-      params: params,
-      question_params: question_params
-    )
-
-    if result.success?
-      render json: result[:model].as_json(
-        only: [
-          :id, :category_id, :course_id, :quiz_id, :question_text,
-          :question_type, :correct_option_id, :marks, :position,
-          :status, :created_at, :updated_at
-        ],
-        include: {
-          options: { only: [ :id, :option_text, :position ] }
-        }
-      ), status: :ok
-    else
-      status = result[:error]&.include?("not found") ? :not_found : :unprocessable_entity
-
-      render json: {
-        errors: result[:errors],
-        error: result[:error]
-      }, status: status
+    result = run Question::Operation::Update,
+                  with: {
+                    params: params,
+                    question_params: question_params
+                  } do |result|
+      return render json: {
+        data: result[:model].as_json(
+          only: [
+            :id, :category_id, :course_id, :quiz_id,
+            :question_text, :question_type, :correct_option_id,
+            :marks, :position, :status, :created_at, :updated_at
+          ],
+          include: {
+            options: {
+              only: [ :id, :option_text, :position ]
+            }
+          }
+        )
+      }, status: :ok
     end
+
+    render_operation_error(result)
   end
 
   # DELETE /questions/:id
   def destroy
-    result = Question::Operation::Destroy.call(params: params)
-
-    if result.success?
-      head :no_content
-    else
-      status = result[:error]&.include?("not found") ? :not_found : :unprocessable_entity
-
-      render json: {
-        error: result[:error],
-        errors: result[:errors]
-      }, status: status
+    result = run Question::Operation::Destroy,
+                  with: { params: params } do |_result|
+      return head :no_content
     end
+
+    render_operation_error(result, default_status: :not_found)
   end
 
   private

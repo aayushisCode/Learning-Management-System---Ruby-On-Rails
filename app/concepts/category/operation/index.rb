@@ -1,3 +1,4 @@
+
 module Category::Operation
   class Index < Trailblazer::Operation
     step :fetch_categories
@@ -5,14 +6,16 @@ module Category::Operation
 
     def fetch_categories(ctx, **)
       ctx[:models] = Category.all.to_a
-      true
     rescue StandardError => e
       Rails.logger.error("Category Index Error: #{e.full_message}")
       false
     end
 
     def handle_failure(ctx, **)
-      ctx[:error] = "Unable to fetch categories"
+      ctx[:error] = {
+        msg: "Unable to fetch categories",
+        status: :internal_server_error
+      }
     end
   end
 end

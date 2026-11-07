@@ -1,31 +1,31 @@
+
 module User::Operation
   class Update < Trailblazer::Operation
-    step :find_user
-    fail :user_not_found, fail_fast: true
-
+    step Model(User, :find_by)
     step :update_user
-    fail :update_failed, fail_fast: true
+    fail :handle_failure
 
-    def find_user(ctx, params:, **)  # params: Complete request parameters
-      ctx[:model] = User.find_by(id: params[:id])
+    def update_user(ctx, user_params:, **)
+      unless ctx[:model].update(user_params)
+        ctx[:errors] = ctx[:model].errors.full_messages
+        return false
+      end
 
-      # if ctx[:model].nil?
-      #   ctx[:error] = "User not found"
-      #   return false
-      # end
-      !ctx[:model].nil?
+      true
     end
 
-    def user_not_found(ctx, **)
-      ctx[:error] = "User not found"
-    end
-
-    def update_user(ctx, user_params:, **) # user_params:Permitted user attributes
-      ctx[:model].update(user_params)
-    end
-
-    def update_failed(ctx, **)
-      ctx[:errors] = ctx[:model].errors.full_messages
+    def handle_failure(ctx, **)
+      ctx[:error] ||= if ctx[:model].nil?
+        {
+          msg: "User not found",
+          status: :not_found
+        }
+      else
+        {
+          msg: "User update failed",
+          status: :unprocessable_entity
+        }
+      end
     end
   end
 end

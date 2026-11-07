@@ -1,32 +1,32 @@
+
 module Question::Operation
   class Destroy < Trailblazer::Operation
-    step :find_question
+    step Model(Question, :find_by)
     step :destroy_question
+
     fail :handle_failure
 
-    def find_question(ctx, params:, **)
-      ctx[:model] = Question.find_by(id: params[:id])
-
-      unless ctx[:model]
-        ctx[:error] = "Question not found"
-        return false
-      end
-
-      true
-    end
-
     def destroy_question(ctx, **)
-      unless ctx[:model].destroy
-        ctx[:error] = ctx[:model].errors.full_messages
-        return false
+      if ctx[:model].destroy
+        true
+      else
+        ctx[:errors] = ctx[:model].errors.full_messages
+        false
       end
-
-      true
     end
 
     def handle_failure(ctx, **)
-      ctx[:error] ||= "Unable to delete question"
-      true
+      ctx[:error] = if ctx[:model].nil?
+        {
+          msg: "Question not found",
+          status: :not_found
+        }
+      else
+        {
+          msg: "Unable to delete question",
+          status: :unprocessable_entity
+        }
+      end
     end
   end
 end

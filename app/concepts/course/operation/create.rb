@@ -1,11 +1,12 @@
 
 module Course::Operation
   class Create < Trailblazer::Operation
+    step Model(Course, :new)
     step :build_course
-    fail :handle_validation_failure
+    fail :handle_failure
 
     def build_course(ctx, course_params:, **)
-      ctx[:model] = Course.new(course_params)
+      ctx[:model].assign_attributes(course_params)
 
       if ctx[:model].save
         true
@@ -15,8 +16,11 @@ module Course::Operation
       end
     end
 
-    def handle_validation_failure(ctx, **)
-      ctx[:error] = "Course creation failed"
+    def handle_failure(ctx, **)
+      ctx[:error] = {
+        msg: "Course creation failed",
+        status: :unprocessable_entity
+      }
     end
   end
 end

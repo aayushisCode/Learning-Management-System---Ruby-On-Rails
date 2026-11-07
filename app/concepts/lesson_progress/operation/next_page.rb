@@ -1,3 +1,4 @@
+
 module LessonProgress::Operation
   class NextPage < Trailblazer::Operation
     step :find_assignment
@@ -14,7 +15,10 @@ module LessonProgress::Operation
 
       return true if ctx[:user_course]
 
-      ctx[:error] = "Course assignment not found"
+      ctx[:error] = {
+        msg: "Course assignment not found",
+        status: :not_found
+      }
       false
     end
 
@@ -26,7 +30,10 @@ module LessonProgress::Operation
 
       return true if ctx[:lesson_progress]
 
-      ctx[:error] = "Lesson progress not found"
+      ctx[:error] = {
+        msg: "Lesson progress not found",
+        status: :not_found
+      }
       false
     end
 
@@ -42,7 +49,10 @@ module LessonProgress::Operation
 
       return true unless previous_incomplete
 
-      ctx[:error] = "Complete previous lessons first"
+      ctx[:error] = {
+        msg: "Complete previous lessons first",
+        status: :unprocessable_entity
+      }
       false
     end
 
@@ -51,23 +61,30 @@ module LessonProgress::Operation
       pages = progress.lesson.pages || []
 
       if pages.empty?
-        ctx[:error] = "This lesson has no documentation pages"
+        ctx[:error] = {
+          msg: "This lesson has no documentation pages",
+          status: :unprocessable_entity
+        }
         return false
       end
 
       if progress.completed_pages >= pages.size
-        ctx[:error] = "All documentation pages are completed"
+        ctx[:error] = {
+          msg: "All documentation pages are completed",
+          status: :unprocessable_entity
+        }
         return false
       end
 
       ctx[:page_number] = progress.completed_pages + 1
       ctx[:page] = pages[progress.completed_pages]
-
-      true
     end
 
     def handle_failure(ctx, **)
-      ctx[:error] ||= "Unable to fetch the next page"
+      ctx[:error] ||= {
+        msg: "Unable to fetch the next page",
+        status: :internal_server_error
+      }
     end
   end
 end

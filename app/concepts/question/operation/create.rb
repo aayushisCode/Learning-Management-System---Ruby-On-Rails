@@ -1,9 +1,12 @@
+
 module Question::Operation
   class Create < Trailblazer::Operation
+    step Model(Question, :new)
     step :build_question
     step :validate_question_relationships
     step :validate_options
     step :save_question_and_options
+
     fail :handle_failure
 
     def build_question(ctx, params:, **)
@@ -12,8 +15,7 @@ module Question::Operation
       ctx[:options_attributes] = attributes.delete(:options)
       ctx[:correct_option_position] = attributes.delete(:correct_option_position)
 
-      ctx[:model] = Question.new(attributes)
-      true
+      ctx[:model].assign_attributes(attributes)
     end
 
     def validate_question_relationships(ctx, **)
@@ -24,17 +26,26 @@ module Question::Operation
       category = Category.find_by(id: question.category_id)
 
       unless quiz && course && category
-        ctx[:error] = "Quiz, course or category not found"
+        ctx[:error] = {
+          msg: "Quiz, course or category not found",
+          status: :not_found
+        }
         return false
       end
 
       unless quiz.course_id == question.course_id
-        ctx[:error] = "Question course must match quiz course"
+        ctx[:error] = {
+          msg: "Question course must match quiz course",
+          status: :unprocessable_entity
+        }
         return false
       end
 
       unless course.category_id == question.category_id
-        ctx[:error] = "Question category must match course category"
+        ctx[:error] = {
+          msg: "Question category must match course category",
+          status: :unprocessable_entity
+        }
         return false
       end
 
@@ -46,7 +57,10 @@ module Question::Operation
       options = ctx[:options_attributes]
 
       unless options.is_a?(Array)
-        ctx[:error] = "Options must be an array"
+        ctx[:error] = {
+          msg: "Options must be an array",
+          status: :unprocessable_entity
+        }
         return false
       end
 
@@ -54,19 +68,28 @@ module Question::Operation
       when "mcq" then 4
       when "boolean" then 2
       else
-                         ctx[:error] = "Question type must be mcq or boolean"
-                         return false
+        ctx[:error] = {
+          msg: "Question type must be mcq or boolean",
+          status: :unprocessable_entity
+        }
+        return false
       end
 
       unless options.size == expected_count
-        ctx[:error] = "#{question.question_type} must have exactly #{expected_count} options"
+        ctx[:error] = {
+          msg: "#{question.question_type} must have exactly #{expected_count} options",
+          status: :unprocessable_entity
+        }
         return false
       end
 
       positions = options.map { |option| option[:position].to_i }
 
       unless positions.sort == (1..expected_count).to_a
-        ctx[:error] = "Option positions must be consecutive and start from 1"
+        ctx[:error] = {
+          msg: "Option positions must be consecutive and start from 1",
+          status: :unprocessable_entity
+        }
         return false
       end
 
@@ -76,27 +99,33 @@ module Question::Operation
         end
 
         unless option_texts.sort == %w[false true]
-          ctx[:error] = "Boolean options must be True and False"
+          ctx[:error] = {
+            msg: "Boolean options must be True and False",
+            status: :unprocessable_entity
+          }
           return false
         end
       end
 
-      correct_position = Integer(ctx[:correct_option_position], exception: false)
+      correct_position = Integer(
+        ctx[:correct_option_position],
+        exception: false
+      )
 
       unless correct_position && (1..expected_count).cover?(correct_position)
-        ctx[:error] = "Select a valid correct_option_position"
+        ctx[:error] = {
+          msg: "Select a valid correct_option_position",
+          status: :unprocessable_entity
+        }
         return false
       end
 
       ctx[:correct_option_position] = correct_position
-      true
     end
 
     def save_question_and_options(ctx, **)
       question = ctx[:model]
       options = ctx[:options_attributes]
-
-      saved = false
 
       ActiveRecord::Base.transaction do
         question.save!
@@ -113,27 +142,19 @@ module Question::Operation
         end
 
         question.update!(correct_option: correct_option)
-
-        saved = true
       end
 
-      unless saved
-        ctx[:error] ||= "Unable to create question"
-        return false
-      end
-
-      ctx[:model] = question
       true
-
     rescue ActiveRecord::RecordInvalid => e
-      ctx[:error] = e.record.errors.full_messages
+      ctx[:errors] = e.record.errors.full_messages
       false
     end
 
     def handle_failure(ctx, **)
-      ctx[:error] ||= ctx[:model]&.errors&.full_messages ||
-                      "Unable to create question"
-      true
+      ctx[:error] ||= {
+        msg: "Question creation failed",
+        status: :unprocessable_entity
+      }
     end
 
     private

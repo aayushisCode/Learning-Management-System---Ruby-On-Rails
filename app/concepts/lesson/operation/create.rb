@@ -1,12 +1,12 @@
+
 module Lesson::Operation
   class Create < Trailblazer::Operation
+    step Model(Lesson, :new)
     step :build_lesson
     fail :handle_failure
 
     def build_lesson(ctx, lesson_params:, **)
-      ctx[:model] = Lesson.new(lesson_params)
-
-      if ctx[:model].save
+      if ctx[:model].update(lesson_params)
         true
       else
         ctx[:errors] = ctx[:model].errors.full_messages
@@ -15,7 +15,10 @@ module Lesson::Operation
     end
 
     def handle_failure(ctx, **)
-      ctx[:error] = "Lesson creation failed"
+      ctx[:error] = {
+        msg: "Lesson creation failed",
+        status: :unprocessable_entity
+      }
     end
   end
 end

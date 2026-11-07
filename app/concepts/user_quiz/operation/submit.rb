@@ -1,8 +1,10 @@
+
 module UserQuiz::Operation
   class Submit < Trailblazer::Operation
     step :find_attempt
     step :calculate_result
     step :submit_attempt
+
     fail :handle_failure
 
     def find_attempt(ctx, params:, current_user:, **)
@@ -13,12 +15,18 @@ module UserQuiz::Operation
                             )
 
       unless ctx[:model]
-        ctx[:error] = "Quiz attempt not found"
+        ctx[:error] = {
+          msg: "Quiz attempt not found",
+          status: :not_found
+        }
         return false
       end
 
       unless ctx[:model].status == "in_progress"
-        ctx[:error] = "This quiz attempt has already been submitted"
+        ctx[:error] = {
+          msg: "This quiz attempt has already been submitted",
+          status: :conflict
+        }
         return false
       end
 
@@ -65,7 +73,10 @@ module UserQuiz::Operation
 
       user_quiz.with_lock do
         unless user_quiz.status == "in_progress"
-          ctx[:error] = "This quiz attempt has already been submitted"
+          ctx[:error] = {
+            msg: "This quiz attempt has already been submitted",
+            status: :conflict
+          }
           return false
         end
 
@@ -77,7 +88,11 @@ module UserQuiz::Operation
           status: "submitted",
           submitted_at: Time.current
         )
-          ctx[:error] = user_quiz.errors.full_messages
+          ctx[:errors] = user_quiz.errors.full_messages
+          ctx[:error] = {
+            msg: "Unable to submit quiz",
+            status: :unprocessable_entity
+          }
           return false
         end
       end
@@ -86,8 +101,10 @@ module UserQuiz::Operation
     end
 
     def handle_failure(ctx, **)
-      ctx[:error] ||= "Unable to submit quiz"
-      true
+      ctx[:error] ||= {
+        msg: "Unable to submit quiz",
+        status: :unprocessable_entity
+      }
     end
   end
 end

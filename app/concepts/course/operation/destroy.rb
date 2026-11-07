@@ -1,27 +1,31 @@
+
 module Course::Operation
   class Destroy < Trailblazer::Operation
-    step :find_course
+    step Model(Course, :find_by)
     step :delete_course
     fail :handle_failure
-
-    def find_course(ctx, params:, **)
-      ctx[:model] = Course.find_by(id: params[:id])
-
-      return false unless ctx[:model]
-
-      true
-    end
 
     def delete_course(ctx, **)
       if ctx[:model].destroy
         true
       else
-        false unless ctx[:model].destroy
+        ctx[:errors] = ctx[:model].errors.full_messages
+        false
       end
     end
 
     def handle_failure(ctx, **)
-      ctx[:error] ||= "Course deletion failed"
+      ctx[:error] = if ctx[:model].nil?
+        {
+          msg: "Course not found",
+          status: :not_found
+        }
+      else
+        {
+          msg: "Course deletion failed",
+          status: :unprocessable_entity
+        }
+      end
     end
   end
 end

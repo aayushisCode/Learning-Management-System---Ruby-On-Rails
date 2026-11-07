@@ -1,19 +1,19 @@
+
 module Quiz::Operation
   class Create < Trailblazer::Operation
+    step Model(Quiz, :new)
     step :build_quiz
     step :save_quiz
     fail :handle_failure
 
     def build_quiz(ctx, params:, **)
       attributes = permitted_attributes(params)
-
-      ctx[:model] = Quiz.new(attributes)
-      true
+      ctx[:model].assign_attributes(attributes)
     end
 
     def save_quiz(ctx, **)
       unless ctx[:model].save
-        ctx[:error] = ctx[:model].errors.full_messages
+        ctx[:errors] = ctx[:model].errors.full_messages
         return false
       end
 
@@ -21,7 +21,10 @@ module Quiz::Operation
     end
 
     def handle_failure(ctx, **)
-      ctx[:error] ||= ctx[:model]&.errors&.full_messages || "Unable to create quiz"
+      ctx[:error] ||= {
+        msg: "Unable to create quiz",
+        status: :unprocessable_entity
+      }
     end
 
     private

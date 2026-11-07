@@ -1,9 +1,11 @@
+
 module UserQuiz::Operation
   class Start < Trailblazer::Operation
     step :find_user_course
     step :find_quiz
     step :validate_quiz_access
     step :create_attempt
+
     fail :handle_failure
 
     def find_user_course(ctx, params:, current_user:, **)
@@ -13,7 +15,10 @@ module UserQuiz::Operation
       )
 
       unless ctx[:user_course]
-        ctx[:error] = "Course assignment not found"
+        ctx[:error] = {
+          msg: "Course assignment not found",
+          status: :not_found
+        }
         return false
       end
 
@@ -24,7 +29,10 @@ module UserQuiz::Operation
       ctx[:quiz] = Quiz.find_by(id: params[:quiz_id])
 
       unless ctx[:quiz]
-        ctx[:error] = "Quiz not found"
+        ctx[:error] = {
+          msg: "Quiz not found",
+          status: :not_found
+        }
         return false
       end
 
@@ -36,42 +44,67 @@ module UserQuiz::Operation
       quiz = ctx[:quiz]
 
       unless user_course.course_id == quiz.course_id
-        ctx[:error] = "This quiz does not belong to the assigned course"
+        ctx[:error] = {
+          msg: "This quiz does not belong to the assigned course",
+          status: :unprocessable_entity
+        }
         return false
       end
 
-      # Do not allow a second active attempt.
       active_attempt = user_course.user_quizzes.find_by(
         quiz_id: quiz.id,
         status: "in_progress"
       )
 
       if active_attempt
-        ctx[:error] = "You already have an active attempt for this quiz"
+        ctx[:error] = {
+          msg: "You already have an active attempt for this quiz",
+          status: :conflict
+        }
         return false
       end
 
-      if quiz.quiz_type == "lesson"
+      case quiz.quiz_type
+      when "lesson"
         lesson_progress = user_course.lesson_progresses.find_by(
           lesson_id: quiz.lesson_id,
           status: "completed"
         )
 
         unless lesson_progress
-          ctx[:error] = "Complete the lesson before starting its quiz"
-          false
+          ctx[:error] = {
+            msg: "Complete the lesson before starting its quiz",
+            status: :unprocessable_entity
+          }
+          return false
         end
-      elsif quiz.quiz_type == "final"
+
+      when "final"
         unless all_lessons_completed?(user_course)
-          ctx[:error] = "Complete all lessons before starting the final quiz"
+          ctx[:error] = {
+            msg: "Complete all lessons before starting the final quiz",
+            status: :unprocessable_entity
+          }
           return false
         end
 
         unless all_lesson_quizzes_passed?(user_course)
-          ctx[:error] = "Pass all lesson quizzes before starting the final quiz"
-          false
+          ctx[:error] = {
+            msg: "Pass all lesson quizzes before starting the final quiz",
+            status: :unprocessable_entity
+          }
+          return false
         end
+
+      else
+        ctx[:error] = {
+          msg: "Invalid quiz type",
+          status: :unprocessable_entity
+        }
+        return false
       end
+
+      true
     end
 
     def create_attempt(ctx, **)
@@ -90,7 +123,7 @@ module UserQuiz::Operation
       )
 
       unless ctx[:model].save
-        ctx[:error] = ctx[:model].errors.full_messages
+        ctx[:errors] = ctx[:model].errors.full_messages
         return false
       end
 
@@ -98,7 +131,10 @@ module UserQuiz::Operation
     end
 
     def handle_failure(ctx, **)
-      ctx[:error] ||= "Unable to start quiz"
+      ctx[:error] ||= {
+        msg: "Unable to start quiz",
+        status: :unprocessable_entity
+      }
     end
 
     private
@@ -106,13 +142,18 @@ module UserQuiz::Operation
     def all_lessons_completed?(user_course)
       total_lessons = user_course.course.lessons.count
 
-      completed_lessons = user_course.lesson_progresses.where(status: "completed").distinct.count(:lesson_id)
+      completed_lessons = user_course.lesson_progresses
+                                     .where(status: "completed")
+                                     .distinct
+                                     .count(:lesson_id)
 
       completed_lessons == total_lessons
     end
 
     def all_lesson_quizzes_passed?(user_course)
-      lesson_quiz_ids = user_course.course.quizzes.where(quiz_type: "lesson").pluck(:id)
+      lesson_quiz_ids = user_course.course.quizzes
+                                   .where(quiz_type: "lesson")
+                                   .pluck(:id)
 
       lesson_quiz_ids.all? do |quiz_id|
         user_course.user_quizzes.exists?(
