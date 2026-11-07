@@ -6,7 +6,7 @@ class Course < ApplicationRecord
   has_many :users, through: :user_courses
 
   has_many :quizzes, dependent: :restrict_with_error
-  has_many :question_banks, dependent: :restrict_with_error
+  has_many :questions, dependent: :restrict_with_error
 
   before_validation :normalize_title
 

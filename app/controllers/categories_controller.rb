@@ -1,75 +1,44 @@
 class CategoriesController < ApplicationController
   # GET /categories
   def index
-    result = Category::Operation::Index.call
-
-    if result.success?
-      render json: result[:models].as_json(
-        only: [ :id, :category_name, :description, :created_at, :updated_at ]
-      ), status: :ok
-    else
-      render json: { error: result[:error] },
-             status: :internal_server_error
+    result = run Category::Operation::Index.call(params: params) do |result|
+      return render json: { data: result[:response_data] }, status: :ok
     end
+    render json: { error: result[:error][:msg] }, status: result[:error][:status]
   end
 
   # GET /categories/:id
   def show
-    result = Category::Operation::Show.call(params: params)
-
-    if result.success?
-      render json: result[:model], status: :ok
-    else
-      render json: { error: result[:error] }, status: :not_found
+    result = run Category::Operation::Show, with: { params: params } do |result|
+      return render json: { data: result[:response_data] }, status: :ok
     end
+    render json: { error: result[:error][:msg] }, status: result[:error][:status]
   end
 
   # POST /categories
   def create
-    result = Category::Operation::Create.call(
-      category_params: category_params
-    )
-
-    if result.success?
-      render json: result[:model], status: :created
-    else
-      render json: {
-        error: result[:error],
-        errors: result[:errors]
-      }, status: :unprocessable_entity
+    result = run Category::Operation::Create,
+    with: { category_params: category_params } do |result|
+      return render json: { data: result[:response_data] }, status: :created
     end
+    render json: { error: result[:error][:msg] }, status: result[:error][:status]
   end
 
   # PATCH /categories/:id
   def update
-    result = Category::Operation::Update.call(
-      params: params,
-      category_params: category_params
-    )
-
-    if result.success?
-      render json: result[:model], status: :ok
-    else
-      render json: {
-        error: result[:error],
-        errors: result[:errors]
-      }, status: :unprocessable_entity
+    result = run Category::Operation::Update,
+    with: { params: params, category_params: category_params } do |result|
+      return render json: { data: result[:response_data] }, status: :ok
     end
+    render json: { error: result[:error][:msg] }, status: result[:error][:status]
   end
 
   # DELETE /categories/:id
   def destroy
-    result = Category::Operation::Destroy.call(params: params)
-
-    if result.success?
-      render json: { message: "Category deleted successfully" },
-             status: :ok
-    else
-      render json: {
-        error: result[:error],
-        errors: result[:errors]
-      }, status: :unprocessable_entity
+    result = run Category::Operation::Destroy, with: { params: params } do |result|
+      return render json: { data: result[:response_data] }, status: :ok
     end
+    render json: { error: result[:error][:msg] }, status: result[:error][:status]
   end
 
   private

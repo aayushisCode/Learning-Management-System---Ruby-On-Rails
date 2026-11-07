@@ -2,7 +2,7 @@ class Quiz < ApplicationRecord
   belongs_to :course
   belongs_to :lesson, optional: true
 
-  has_many :question_banks, dependent: :restrict_with_error
+  has_many :questions, dependent: :restrict_with_error
   has_many :user_quizzes, dependent: :restrict_with_error
 
   validates :title, presence: true
@@ -14,7 +14,8 @@ class Quiz < ApplicationRecord
   validates :pass_marks,
             numericality: {
               only_integer: true,
-              greater_than_or_equal_to: 0
+              greater_than_or_equal_to: 0,
+              less_than_or_equal_to: 100
             }
 
   validate :lesson_must_match_quiz_type

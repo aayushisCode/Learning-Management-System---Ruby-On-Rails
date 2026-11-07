@@ -2,134 +2,167 @@
 module UserCourse::Operation
   class Create < Trailblazer::Operation
     step :validate_filter_type
-    step :fetch_courses
+    step :fetch_course
     step :fetch_users
     step :create_assignments
 
     fail :handle_failure
 
+    # Step 1: Validate selection type
     def validate_filter_type(ctx, user_course_params:, **)
       filter_type = user_course_params[:filter_type].to_s
 
       unless %w[user role].include?(filter_type)
-        ctx[:error] = "Invalid filter type. Select user or role."
+        ctx[:error] = {
+          msg: "Invalid filter type. Select user or role.",
+          status: :unprocessable_entity
+        }
         return false
       end
 
       true
     end
 
-    def fetch_courses(ctx, user_course_params:, **)
+    # Step 2: Fetch ONE course
+    def fetch_course(ctx, user_course_params:, **)
       category_id = user_course_params[:category_id]
-      course_ids = Array(user_course_params[:course_ids]).reject(&:blank?)
+      course_id = user_course_params[:course_id]
 
-      if category_id.blank?
-        ctx[:error] = "Please select a category"
+      if category_id.blank? || course_id.blank?
+        ctx[:error] = {
+          msg: "Please select a category and one course.",
+          status: :unprocessable_entity
+        }
         return false
       end
 
       category = Category.find_by(id: category_id)
 
       unless category
-        ctx[:error] = "Selected category does not exist"
+        ctx[:error] = {
+          msg: "Selected category does not exist.",
+          status: :not_found
+        }
         return false
       end
 
-      if course_ids.blank?
-        ctx[:error] = "Please select at least one course"
-        return false
-      end
-
-      ctx[:courses] = Course.where(
-        id: course_ids,
+      course = Course.includes(:lessons).find_by(
+        id: course_id,
         category_id: category.id,
         status: "published"
       )
 
-      if ctx[:courses].count != course_ids.uniq.count
-        ctx[:error] = "One or more courses are invalid, unpublished, or do not belong to the selected category"
+      unless course
+        ctx[:error] = {
+          msg: "Selected course is invalid or unpublished.",
+          status: :unprocessable_entity
+        }
         return false
       end
 
+      ctx[:course] = course
       true
     end
 
+    # Step 3: Fetch multiple users based on selection
     def fetch_users(ctx, user_course_params:, **)
       filter_type = user_course_params[:filter_type].to_s
 
       case filter_type
 
       when "user"
-        user_ids = Array(user_course_params[:user_ids]).reject(&:blank?)
+        user_ids = Array(user_course_params[:user_ids])
+                    .reject(&:blank?)
+                    .uniq
 
         if user_ids.blank?
-          ctx[:error] = "Please select at least one user"
+          ctx[:error] = {
+            msg: "Please select at least one user.",
+            status: :unprocessable_entity
+          }
           return false
         end
 
-        ctx[:users] = User.joins(:role)
-                          .where(id: user_ids)
-                          .where(roles: { name: %w[manager learner] })
+        users = User.joins(:role)
+                    .where(id: user_ids)
+                    .where(roles: { name: %w[manager learner] })
 
-        if ctx[:users].count != user_ids.uniq.count
-          ctx[:error] = "One or more selected users are invalid"
+        if users.count != user_ids.count
+          ctx[:error] = {
+            msg: "One or more selected users are invalid.",
+            status: :unprocessable_entity
+          }
           return false
         end
+
+        ctx[:users] = users
 
       when "role"
-        role_ids = Array(user_course_params[:role_ids]).reject(&:blank?)
+        role_ids = Array(user_course_params[:role_ids])
+                    .reject(&:blank?)
+                    .uniq
 
         if role_ids.blank?
-          ctx[:error] = "Please select at least one role"
+          ctx[:error] = {
+            msg: "Please select at least one role.",
+            status: :unprocessable_entity
+          }
           return false
         end
 
-        valid_roles = Role.where(
+        roles = Role.where(
           id: role_ids,
           name: %w[manager learner]
         )
 
-        if valid_roles.count != role_ids.uniq.count
-          ctx[:error] = "One or more selected roles are invalid"
+        if roles.count != role_ids.count
+          ctx[:error] = {
+            msg: "One or more selected roles are invalid.",
+            status: :unprocessable_entity
+          }
           return false
         end
 
-        ctx[:users] = User.where(role_id: valid_roles.select(:id))
+        users = User.where(role_id: roles.select(:id))
 
-        if ctx[:users].blank?
-          ctx[:error] = "No users found for the selected roles"
+        if users.blank?
+          ctx[:error] = {
+            msg: "No users found for the selected roles.",
+            status: :unprocessable_entity
+          }
           return false
         end
+
+        ctx[:users] = users
       end
 
       true
     end
 
+    # Step 4: Assign ONE course to MULTIPLE users
     def create_assignments(ctx, **)
       assignments = []
+      course = ctx[:course]
 
       UserCourse.transaction do
         ctx[:users].each do |user|
-          ctx[:courses].each do |course|
-            assignment = UserCourse.create!(
-              user: user,
-              course: course,
-              assigned_by: ctx[:current_user]
+          assignment = UserCourse.create!(
+            user: user,
+            course: course,
+            assigned_by: ctx[:current_user]
+          )
+
+          course.lessons.each do |lesson|
+            assignment.lesson_progresses.create!(
+              lesson: lesson,
+              completed_pages: 0,
+              total_pages: Array(lesson.pages).size,
+              progress_percentage: 0,
+              status: "not_started"
             )
-
-            # Initialize progress for every lesson
-            course.lessons.each do |lesson|
-              assignment.lesson_progresses.create!(
-                lesson: lesson,
-                completed_pages: 0,
-                total_pages: lesson.pages.size,
-                progress_percentage: 0,
-                status: "not_started"
-              )
-            end
-
-            assignments << assignment
           end
+
+          assignments << assignment
         end
       end
 
@@ -137,13 +170,22 @@ module UserCourse::Operation
       true
 
     rescue ActiveRecord::RecordInvalid => e
-      ctx[:error] = e.record.errors.full_messages
+      ctx[:errors] = e.record.errors.full_messages
+
+      ctx[:error] = {
+        msg: "Unable to create course assignments.",
+        status: :unprocessable_entity
+      }
+
       false
     end
 
-
+    # Failure handling
     def handle_failure(ctx, **)
-      ctx[:error] ||= "Course assignment failed"
+      ctx[:error] ||= {
+        msg: "Course assignment failed.",
+        status: :unprocessable_entity
+      }
     end
   end
 end

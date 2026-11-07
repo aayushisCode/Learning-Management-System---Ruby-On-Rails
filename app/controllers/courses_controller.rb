@@ -1,75 +1,97 @@
-
+# Course Controller
 class CoursesController < ApplicationController
   # GET /courses
   def index
-    result = Course::Operation::Index.call
-
-    if result.success?
-      render json: result[:models].as_json(
-        only: [ :id, :category_id, :title, :description, :status, :created_at, :updated_at ]
-      ), status: :ok
-    else
-      render json: { error: result[:error] },
-             status: :internal_server_error
+    result = run Course::Operation::Index do |result|
+      return render json: {
+        data: result[:models].as_json(
+          only: [
+            :id, :category_id, :title, :description,
+            :status, :created_at, :updated_at
+          ]
+        )
+      }, status: :ok
     end
+
+    render json: {
+      error: result[:error][:msg]
+    }, status: result[:error][:code]
   end
 
   # GET /courses/:id
   def show
-    result = Course::Operation::Show.call(params: params)
-
-    if result.success?
-      render json: result[:model].as_json(
-        only: [ :id, :category_id, :title, :description, :status, :created_at, :updated_at ]
-      ), status: :ok
-    else
-      render json: { error: result[:error] },
-             status: :not_found
+    result = run Course::Operation::Show,
+                  with: { params: params } do |result|
+      return render json: {
+        data: result[:model].as_json(
+          only: [
+            :id, :category_id, :title, :description,
+            :status, :created_at, :updated_at
+          ]
+        )
+      }, status: :ok
     end
+
+    render json: {
+      error: result[:error][:msg]
+    }, status: result[:error][:code]
   end
 
   # POST /courses
   def create
-    result = Course::Operation::Create.call(course_params: course_params)
-
-    if result.success?
-      render json: result[:model].as_json(
-        only: [ :id, :category_id, :title, :description, :status, :created_at, :updated_at ]
-      ), status: :created
-    else
-      render json: { errors: result[:errors] || result[:error] },
-             status: :unprocessable_entity
+    result = run Course::Operation::Create,
+                  with: { course_params: course_params } do |result|
+      return render json: {
+        data: result[:model].as_json(
+          only: [
+            :id, :category_id, :title, :description,
+            :status, :created_at, :updated_at
+          ]
+        )
+      }, status: :created
     end
+
+    render json: {
+      error: result[:error][:msg],
+      errors: result[:errors]
+    }, status: result[:error][:code]
   end
 
   # PATCH /courses/:id
   def update
-    result = Course::Operation::Update.call(
-      params: params,
-      course_params: course_params
-    )
-
-    if result.success?
-      render json: result[:model].as_json(
-        only: [ :id, :category_id, :title, :description, :status, :created_at, :updated_at ]
-      ), status: :ok
-    else
-      render json: { errors: result[:errors] || result[:error] },
-             status: :unprocessable_entity
+    result = run Course::Operation::Update,
+                  with: {
+                    params: params,
+                    course_params: course_params
+                  } do |result|
+      return render json: {
+        data: result[:model].as_json(
+          only: [
+            :id, :category_id, :title, :description,
+            :status, :created_at, :updated_at
+          ]
+        )
+      }, status: :ok
     end
+
+    render json: {
+      error: result[:error][:msg],
+      errors: result[:errors]
+    }, status: result[:error][:code]
   end
 
   # DELETE /courses/:id
   def destroy
-    result = Course::Operation::Destroy.call(params: params)
-
-    if result.success?
-      render json: { message: "Course deleted successfully" },
-             status: :ok
-    else
-      render json: { error: result[:error] },
-             status: :not_found
+    result = run Course::Operation::Destroy,
+                  with: { params: params } do |_result|
+      return render json: {
+        message: "Course deleted successfully"
+      }, status: :ok
     end
+
+    render json: {
+      error: result[:error][:msg]
+    }, status: result[:error][:code]
   end
 
   private

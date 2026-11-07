@@ -1,3 +1,4 @@
+
 module Lesson::Operation
   class Index < Trailblazer::Operation
     step :fetch_lessons
@@ -11,11 +12,16 @@ module Lesson::Operation
       end
 
       ctx[:models] = lessons.to_a
-      true
+    rescue StandardError => e
+      Rails.logger.error("Lesson Index Error: #{e.full_message}")
+      false
     end
 
     def handle_failure(ctx, **)
-      ctx[:error] = "Unable to fetch lessons"
+      ctx[:error] = {
+        msg: "Unable to fetch lessons",
+        status: :internal_server_error
+      }
     end
   end
 end
