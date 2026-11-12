@@ -1,6 +1,6 @@
 
 class LessonsController < ApplicationController
-  def index
+def index
     result = run Lesson::Operation::Index,
                   with: { params: params } do |result|
       return render json: {
@@ -18,7 +18,7 @@ class LessonsController < ApplicationController
 
   def create
     result = run Lesson::Operation::Create,
-                  with: { lesson_params: lesson_params } do |result|
+                  lesson_params: lesson_params, current_user: current_user do |result|
       return render json: { data: result[:model] }, status: :created
     end
 
@@ -28,7 +28,7 @@ class LessonsController < ApplicationController
   # GET /lessons/:id
   def show
     result = run Lesson::Operation::Show,
-                  with: { params: params } do |result|
+                  with: { params: {id: params[:id] } } do |result|
       return render json: {
         data: result[:model].as_json(
           only: [
@@ -45,10 +45,8 @@ class LessonsController < ApplicationController
   # PATCH /lessons/:id
   def update
     result = run Lesson::Operation::Update,
-                  with: {
                     params: params,
-                    lesson_params: lesson_params
-                  } do |result|
+                    lesson_params: lesson_params, current_user: current_user do |result|
       return render json: { data: result[:model] }, status: :ok
     end
 
@@ -58,8 +56,10 @@ class LessonsController < ApplicationController
   # DELETE /lessons/:id
   def destroy
     result = run Lesson::Operation::Destroy,
-                  with: { params: params } do |_result|
-      return head :no_content
+                   params: params, current_user: current_user do |_result|
+      return render json: {
+      message: "Lesson deleted successfully"
+    }, status: :ok
     end
 
     render_operation_error(result, default_status: :not_found)

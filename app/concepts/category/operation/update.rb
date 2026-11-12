@@ -6,9 +6,10 @@ module Category::Operation
 
     def update_category(ctx, category_params:, **)
       if ctx[:model].update(category_params)
-
+        true
       else
         ctx[:errors] = ctx[:model].errors.full_messages
+        false
       end
     end
 

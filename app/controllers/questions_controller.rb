@@ -52,7 +52,7 @@ class QuestionsController < ApplicationController
   # POST /questions
   def create
     result = run Question::Operation::Create,
-                  with: { question_params: question_params } do |result|
+                 question_params: question_params  do |result|
       return render json: {
         data: result[:model].as_json(
           only: [
@@ -111,7 +111,11 @@ class QuestionsController < ApplicationController
   private
 
   def require_admin!
-    authorize!("admin")
+    unless current_user&.admin?
+      render json: {
+        error: "Access denied. Admin only."
+      }, status: :forbidden
+    end
   end
 
   def question_params

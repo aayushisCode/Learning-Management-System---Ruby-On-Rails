@@ -40,7 +40,7 @@ class CoursesController < ApplicationController
   # POST /courses
   def create
     result = run Course::Operation::Create,
-                  with: { course_params: course_params } do |result|
+                  course_params: course_params, current_user: current_user do |result|
       return render json: {
         data: result[:model].as_json(
           only: [
@@ -59,11 +59,9 @@ class CoursesController < ApplicationController
 
   # PATCH /courses/:id
   def update
-    result = run Course::Operation::Update,
-                  with: {
-                    params: params,
-                    course_params: course_params
-                  } do |result|
+    result = run Course::Operation::Update, params: params,
+                    course_params: course_params,
+                    current_user: current_user do |result|
       return render json: {
         data: result[:model].as_json(
           only: [
@@ -83,7 +81,7 @@ class CoursesController < ApplicationController
   # DELETE /courses/:id
   def destroy
     result = run Course::Operation::Destroy,
-                  with: { params: params } do |_result|
+                   params: params, current_user: current_user  do |_result|
       return render json: {
         message: "Course deleted successfully"
       }, status: :ok

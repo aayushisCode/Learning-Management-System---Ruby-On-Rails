@@ -94,6 +94,7 @@ GEM
       tilt (>= 1.4, < 3)
       uber (< 0.2.0)
     choice (0.2.0)
+    coderay (1.1.3)
     concurrent-ruby (1.3.8)
     connection_pool (3.0.2)
     crass (1.0.8)
@@ -105,11 +106,33 @@ GEM
     declarative-builder (0.2.0)
       trailblazer-option (~> 0.1.0)
     declarative-option (0.1.0)
+    devise (5.0.4)
+      bcrypt (~> 3.0)
+      orm_adapter (~> 0.1)
+      railties (>= 7.0)
+      responders
+      warden (~> 1.2.3)
+    devise-jwt (0.13.0)
+      devise (>= 4.0.0, < 6.0.0)
+      warden-jwt_auth (~> 0.10)
     disposable (0.6.3)
       declarative (>= 0.0.9, < 1.0.0)
       representable (>= 3.1.1, < 4)
     dotenv (3.2.0)
+    dotenv-rails (3.2.0)
+      dotenv (= 3.2.0)
+      railties (>= 6.1)
     drb (2.2.3)
+    dry-auto_inject (1.2.1)
+      dry-core (~> 1.1)
+      zeitwerk (~> 2.6)
+    dry-configurable (1.4.0)
+      dry-core (~> 1.0)
+      zeitwerk (~> 2.6)
+    dry-core (1.2.0)
+      concurrent-ruby (~> 1.0)
+      logger
+      zeitwerk (~> 2.6)
     ed25519 (1.4.0)
     erb (6.0.7)
     erubi (1.13.1)
@@ -143,6 +166,8 @@ GEM
       rdoc (>= 4.0.0)
       reline (>= 0.4.2)
     json (3.1.0)
+    jwt (3.3.0)
+      base64
     kamal (2.12.0)
       activesupport (>= 7.0)
       base64 (~> 0.2)
@@ -167,6 +192,7 @@ GEM
       net-pop
       net-smtp
     marcel (1.2.1)
+    method_source (1.1.0)
     mini_magick (5.4.0)
       logger
     mini_mime (1.1.5)
@@ -202,15 +228,25 @@ GEM
       racc (~> 1.4)
     nokogiri (1.19.4-x86_64-linux-musl)
       racc (~> 1.4)
+    orm_adapter (0.5.0)
     ostruct (0.6.3)
     parallel (2.3.0)
     parser (3.3.13.0)
       ast (~> 2.4.1)
       racc
+    pg (1.7.0)
+    pg (1.7.0-aarch64-linux)
+    pg (1.7.0-aarch64-linux-musl)
+    pg (1.7.0-x86_64-linux)
+    pg (1.7.0-x86_64-linux-musl)
     pp (0.6.4)
       prettyprint
     prettyprint (0.2.1)
     prism (1.9.0)
+    pry (0.16.1)
+      coderay (~> 1.1)
+      method_source (~> 1.0)
+      reline (>= 0.6.0)
     puma (8.0.2)
       nio4r (~> 2.0)
     raabro (1.5.0)
@@ -279,6 +315,9 @@ GEM
       declarative (< 0.1.0)
       trailblazer-option (>= 0.1.1, < 0.2.0)
       uber (< 0.2.0)
+    responders (3.2.1)
+      actionpack (>= 7.0)
+      railties (>= 7.0)
     rexml (3.4.4)
     rubocop (1.92.1)
       json (>= 2.3)
@@ -331,12 +370,6 @@ GEM
       fugit (~> 1.11)
       railties (>= 7.1)
       thor (>= 1.3.1)
-    sqlite3 (2.10.2-aarch64-linux-gnu)
-    sqlite3 (2.10.2-aarch64-linux-musl)
-    sqlite3 (2.10.2-arm-linux-gnu)
-    sqlite3 (2.10.2-arm-linux-musl)
-    sqlite3 (2.10.2-x86_64-linux-gnu)
-    sqlite3 (2.10.2-x86_64-linux-musl)
     sshkit (1.25.1)
       base64
       logger
@@ -392,6 +425,13 @@ GEM
     unicode-emoji (4.3.0)
     uri (1.1.2)
     useragent (0.16.11)
+    warden (1.2.9)
+      rack (>= 2.0.9)
+    warden-jwt_auth (0.12.0)
+      dry-auto_inject (>= 0.8, < 2)
+      dry-configurable (>= 0.13, < 2)
+      jwt (>= 2.1, < 4)
+      warden (~> 1.2)
     websocket-driver (0.8.2)
       base64
       websocket-extensions (>= 0.1.0)
@@ -409,14 +449,19 @@ PLATFORMS
   x86_64-linux-musl
 
 DEPENDENCIES
-  bcrypt
+  bcrypt (~> 3.1)
   bootsnap
   brakeman
   bundler-audit
   debug
+  devise
+  devise-jwt
+  dotenv-rails
   faker
   image_processing (~> 1.2)
   kamal
+  pg
+  pry (>= 0.14.1)
   puma (>= 5.0)
   rails (~> 8.1.4)
   rails-erd
@@ -425,7 +470,6 @@ DEPENDENCIES
   solid_cable
   solid_cache
   solid_queue
-  sqlite3 (>= 2.1)
   thruster
   trailblazer
   trailblazer-cells

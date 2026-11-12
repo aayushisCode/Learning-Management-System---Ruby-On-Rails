@@ -1,7 +1,7 @@
 
 module Lesson::Operation
   class Show < Trailblazer::Operation
-    step Model(Lesson, :find_by, :model)
+    step Model(Lesson, :find_by)
     fail :handle_failure
 
     def handle_failure(ctx, **)

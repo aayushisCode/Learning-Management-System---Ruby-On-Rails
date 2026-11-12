@@ -3,6 +3,7 @@ class QuizzesController < ApplicationController
   before_action :authenticate_user!
   before_action :require_admin!, only: [ :create, :update, :destroy ]
 
+
   # GET /quizzes
   # GET /courses/:course_id/quizzes
   def index
@@ -21,7 +22,7 @@ class QuizzesController < ApplicationController
     render_operation_error(result, default_status: :internal_server_error)
   end
 
-  # GET /quizzes/:id
+  # GET /quizzes/:id ------------------------ in operation show.rb
   def show
     result = run Quiz::Operation::Show,
                   with: { params: params } do |result|
@@ -54,7 +55,7 @@ class QuizzesController < ApplicationController
   # POST /quizzes
   def create
     result = run Quiz::Operation::Create,
-                  with: { quiz_params: quiz_params } do |result|
+                  quiz_params: quiz_params, current_user: current_user do |result|
       return render json: {
         data: result[:model]
       }, status: :created
@@ -82,7 +83,9 @@ class QuizzesController < ApplicationController
   def destroy
     result = run Quiz::Operation::Destroy,
                   with: { params: params } do |_result|
-      return head :no_content
+      return render json: {
+      message: "Lesson deleted successfully"
+    }, status: :ok
     end
 
     render_operation_error(result, default_status: :not_found)
@@ -203,7 +206,11 @@ class QuizzesController < ApplicationController
   private
 
   def require_admin!
-    authorize!("admin")
+    unless current_user&.admin?
+      render json: {
+        error: "Only admin can perform this action"
+      }, status: :forbidden
+    end
   end
 
   def quiz_params

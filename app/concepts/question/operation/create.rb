@@ -9,10 +9,10 @@ module Question::Operation
 
     fail :handle_failure
 
-    def build_question(ctx, params:, **)
-      attributes = permitted_attributes(params, :question)
+    def build_question(ctx, question_params:, **)
+      attributes = question_params.to_h.with_indifferent_access
 
-      ctx[:options_attributes] = attributes.delete(:options)
+      ctx[:options_attributes] = attributes.delete(:options_attributes)
       ctx[:correct_option_position] = attributes.delete(:correct_option_position)
 
       ctx[:model].assign_attributes(attributes)
@@ -159,23 +159,23 @@ module Question::Operation
 
     private
 
-    def permitted_attributes(params, key)
-      attributes = params[key] || {}
-      attributes = attributes.to_unsafe_h if attributes.respond_to?(:to_unsafe_h)
-      attributes = attributes.with_indifferent_access
+    # def permitted_attributes(params, key)
+    #   attributes = params[key] || {}
+    #   attributes = attributes.to_unsafe_h if attributes.respond_to?(:to_unsafe_h)
+    #   attributes = attributes.with_indifferent_access
 
-      attributes.slice(
-        :category_id,
-        :course_id,
-        :quiz_id,
-        :question_text,
-        :question_type,
-        :marks,
-        :position,
-        :status,
-        :options,
-        :correct_option_position
-      )
-    end
+    #   attributes.slice(
+    #     :category_id,
+    #     :course_id,
+    #     :quiz_id,
+    #     :question_text,
+    #     :question_type,
+    #     :marks,
+    #     :position,
+    #     :status,
+    #     :options,
+    #     :correct_option_position
+    #   )
+    # end
   end
 end

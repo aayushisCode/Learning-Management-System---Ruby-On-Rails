@@ -7,6 +7,7 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   # root "posts#index"
+  devise_for :users, controllers: { sessions: "users/sessions" }
   resources :users
   resources :categories
   resources :courses do
@@ -40,4 +41,8 @@ Rails.application.routes.draw do
 
   post "user_quizzes/:id/submit",
       to: "quizzes#submit"
+
+  namespace :admin do
+    get "dashboard", to: "dashboard#index"
+  end
 end

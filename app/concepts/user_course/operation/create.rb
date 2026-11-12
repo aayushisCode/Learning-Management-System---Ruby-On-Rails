@@ -9,8 +9,8 @@ module UserCourse::Operation
     fail :handle_failure
 
     # Step 1: Validate selection type
-    def validate_filter_type(ctx, user_course_params:, **)
-      filter_type = user_course_params[:filter_type].to_s
+    def validate_filter_type(ctx, params:, **)
+      filter_type = params[:filter_type].to_s
 
       unless %w[user role].include?(filter_type)
         ctx[:error] = {
@@ -24,9 +24,9 @@ module UserCourse::Operation
     end
 
     # Step 2: Fetch ONE course
-    def fetch_course(ctx, user_course_params:, **)
-      category_id = user_course_params[:category_id]
-      course_id = user_course_params[:course_id]
+    def fetch_course(ctx, params:, **)
+      category_id = params[:category_id]
+      course_id = params[:course_id]
 
       if category_id.blank? || course_id.blank?
         ctx[:error] = {
@@ -65,13 +65,13 @@ module UserCourse::Operation
     end
 
     # Step 3: Fetch multiple users based on selection
-    def fetch_users(ctx, user_course_params:, **)
-      filter_type = user_course_params[:filter_type].to_s
+    def fetch_users(ctx, params:, **)
+      filter_type = params[:filter_type].to_s
 
       case filter_type
 
       when "user"
-        user_ids = Array(user_course_params[:user_ids])
+        user_ids = Array(params[:user_ids])
                     .reject(&:blank?)
                     .uniq
 
@@ -98,7 +98,7 @@ module UserCourse::Operation
         ctx[:users] = users
 
       when "role"
-        role_ids = Array(user_course_params[:role_ids])
+        role_ids = Array(params[:role_ids])
                     .reject(&:blank?)
                     .uniq
 
@@ -153,13 +153,12 @@ module UserCourse::Operation
           )
 
           course.lessons.each do |lesson|
-            assignment.lesson_progresses.create!(
-              lesson: lesson,
-              completed_pages: 0,
-              total_pages: Array(lesson.pages).size,
-              progress_percentage: 0,
-              status: "not_started"
-            )
+            lesson.lesson_pages.each do |page|
+              assignment.user_lesson_progresses.create!(
+                lesson_page: page,
+                status: "not_started"
+              )
+            end
           end
 
           assignments << assignment

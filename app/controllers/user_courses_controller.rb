@@ -3,34 +3,62 @@ class UserCoursesController < ApplicationController
   before_action :authenticate_user!
 
   # GET /user_courses
+
   def index
     result = run UserCourse::Operation::Index,
-                  with: {
                     current_user: current_user,
-                    params: params
-                  } do |result|
-      return render json: {
-        data: result[:models].as_json(
-          only: [
-            :id, :user_id, :course_id, :assigned_by_id,
-            :status, :assigned_at, :due_date, :completed_at,
-            :progress_percentage, :completed_lessons,
-            :total_lessons, :created_at, :updated_at
-          ]
-        )
-      }, status: :ok
+                    params: params do |result|
+      data = result[:models].map do |uc|
+        {
+          id: uc.id,
+          user_id: uc.user_id,
+          course_id: uc.course_id,
+          status: uc.status,
+          progress_percentage: uc.progress_percentage,
+
+          course: {
+            id: uc.course.id,
+            title: uc.course.title,
+
+            lessons: uc.course.lessons.map do |lesson|
+              progress = uc.lesson_progresses.find {
+                |lp| lp.lesson_id == lesson.id
+              }
+
+              {
+                id: lesson.id,
+                title: lesson.title,
+                position: lesson.position,
+
+                lesson_progress: progress&.as_json(
+                  only: [
+                    :id, :status, :completed_pages,
+                    :total_pages, :progress_percentage,
+                    :started_at, :completed_at
+                  ]
+                )
+              }
+            end
+          }
+        }
+      end
+
+      return render json: { data: data }, status: :ok
     end
 
-    render_operation_error(result, default_status: :internal_server_error)
+    render_operation_error(
+      result,
+      default_status: :internal_server_error
+    )
   end
 
+
   # GET /user_courses/:id
+
   def show
     result = run UserCourse::Operation::Show,
-                  with: {
-                    params: params,
-                    current_user: current_user
-                  } do |result|
+                  params: params,
+                  current_user: current_user do |result|
       uc = result[:model]
 
       return render json: {
@@ -39,20 +67,39 @@ class UserCoursesController < ApplicationController
         course_id: uc.course_id,
         assigned_by_id: uc.assigned_by_id,
         status: uc.status,
+
         progress_percentage: uc.progress_percentage,
         completed_lessons: uc.completed_lessons,
         total_lessons: uc.total_lessons,
+
         assigned_at: uc.assigned_at,
         due_date: uc.due_date,
         completed_at: uc.completed_at,
 
-        lesson_progresses: uc.lesson_progresses.as_json(
-          only: [
-            :id, :lesson_id, :status, :completed_pages,
-            :total_pages, :progress_percentage,
-            :started_at, :completed_at
-          ]
-        ),
+        course: {
+          id: uc.course.id,
+          title: uc.course.title,
+
+          lessons: uc.course.lessons.map do |lesson|
+            progress = uc.lesson_progresses.find {
+              |lp| lp.lesson_id == lesson.id
+            }
+
+            {
+              id: lesson.id,
+              title: lesson.title,
+              position: lesson.position,
+
+              lesson_progress: progress&.as_json(
+                only: [
+                  :id, :status, :completed_pages,
+                  :total_pages, :progress_percentage,
+                  :started_at, :completed_at
+                ]
+              )
+            }
+          end
+        },
 
         quiz_attempts: uc.user_quizzes.as_json(
           only: [
@@ -67,16 +114,12 @@ class UserCoursesController < ApplicationController
     render_operation_error(result, default_status: :not_found)
   end
 
+
   # POST /user_courses
   def create
-    authorize!("admin", "manager")
-    return if performed?
+    return unless authorize_roles!("admin", "manager")
 
-    result = run UserCourse::Operation::Create,
-                  with: {
-                    user_course_params: user_course_params,
-                    current_user: current_user
-                  } do |result|
+    result = run UserCourse::Operation::Create do |result|
       return render json: {
         message: "Course(s) assigned successfully",
         assignments: result[:assignments].as_json(

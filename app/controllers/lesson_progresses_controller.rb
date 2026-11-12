@@ -2,12 +2,12 @@
 class LessonProgressesController < ApplicationController
   # GET /lesson_progresses/next_page
   def next_page
+    Rails.logger.info "CURRENT USER ID: #{current_user.id}"
+    Rails.logger.info "USER COURSE ID: #{params[:user_course_id]}"
     result = run LessonProgress::Operation::NextPage,
-                  with: {
                     current_user: current_user,
                     user_course_id: params[:user_course_id],
-                    lesson_id: params[:lesson_id]
-                  } do |result|
+                    lesson_id: params[:lesson_id] do |result|
       return render json: {
         page_number: result[:page_number],
         page: result[:page]
@@ -22,12 +22,10 @@ class LessonProgressesController < ApplicationController
   # POST /lesson_progresses/complete_page
   def complete_page
     result = run LessonProgress::Operation::CompletePage,
-                  with: {
                     current_user: current_user,
                     user_course_id: params[:user_course_id],
                     lesson_id: params[:lesson_id],
-                    page_number: params[:page_number]
-                  } do |result|
+                    page_number: params[:page_number] do |result|
       progress = result[:lesson_progress]
       course_progress = progress.user_course
 
@@ -57,11 +55,10 @@ class LessonProgressesController < ApplicationController
 
   def prev_page
     result = run LessonProgress::Operation::PrevPage,
-                with: {
+
                   current_user: current_user,
                   user_course_id: params[:user_course_id],
-                  lesson_id: params[:lesson_id]
-                } do |result|
+                  lesson_id: params[:lesson_id] do |result|
       return render json: {
         page_number: result[:page_number],
         page: result[:page]

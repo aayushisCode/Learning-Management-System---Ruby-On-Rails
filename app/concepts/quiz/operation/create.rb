@@ -6,9 +6,12 @@ module Quiz::Operation
     step :save_quiz
     fail :handle_failure
 
-    def build_quiz(ctx, params:, **)
-      attributes = permitted_attributes(params)
-      ctx[:model].assign_attributes(attributes)
+    def build_quiz(ctx, quiz_params:, **)
+      ctx[:model].assign_attributes(
+        permitted_attributes(quiz_params)
+      )
+
+      true
     end
 
     def save_quiz(ctx, **)
@@ -22,24 +25,21 @@ module Quiz::Operation
 
     def handle_failure(ctx, **)
       ctx[:error] ||= {
-        msg: "Unable to create quiz",
+        msg: ctx[:errors]&.join(", ") || "Unable to create quiz",
         status: :unprocessable_entity
       }
     end
 
     private
 
-    def permitted_attributes(params)
-      attributes = params[:quiz] || {}
-      attributes = attributes.to_unsafe_h if attributes.respond_to?(:to_unsafe_h)
-
-      attributes.slice(
-        :course_id,
-        :lesson_id,
-        :title,
-        :description,
-        :quiz_type,
-        :pass_marks
+    def permitted_attributes(quiz_params)
+      quiz_params.to_h.slice(
+        "course_id",
+        "lesson_id",
+        "title",
+        "description",
+        "quiz_type",
+        "pass_marks"
       )
     end
   end

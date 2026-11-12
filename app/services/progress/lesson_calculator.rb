@@ -1,29 +1,31 @@
 module Progress
   class LessonCalculator
-    def self.call(lesson_progress:)
-      total_pages = lesson_progress.total_pages
-      completed_pages = lesson_progress.completed_pages
+    def self.call(lesson:, user_course:)
+      total_pages = lesson.lesson_pages.count
 
-      # Find the lesson quiz, if one exists
+      completed_pages = user_course.user_lesson_progresses
+        .joins(:lesson_page)
+        .where(
+          lesson_pages: { lesson_id: lesson.id },
+          user_lesson_progresses: { status: "completed" }
+        )
+        .count
+
       quiz = Quiz.find_by(
-        course_id: lesson_progress.user_course.course_id,
-        lesson_id: lesson_progress.lesson_id,
+        course_id: user_course.course_id,
+        lesson_id: lesson.id,
         quiz_type: "lesson"
       )
 
-      # Check whether the learner passed the quiz
-      quiz_passed =
-        quiz.present? &&
+      quiz_passed = quiz.present? &&
         UserQuiz.exists?(
-          user_course: lesson_progress.user_course,
+          user_course: user_course,
           quiz: quiz,
           status: "submitted",
           result: "pass"
         )
 
-      # Count the quiz as one learning activity
       total_activities = total_pages + (quiz.present? ? 1 : 0)
-
       completed_activities = completed_pages + (quiz_passed ? 1 : 0)
 
       percentage =
@@ -47,10 +49,7 @@ module Progress
         total_pages: total_pages,
         completed_pages: completed_pages,
         progress_percentage: percentage,
-        status: status,
-        completed_at: if status == "completed"
-                        lesson_progress.completed_at || Time.current
-                      end
+        status: status
       }
     end
   end

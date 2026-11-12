@@ -22,7 +22,8 @@ class UserCourse < ApplicationRecord
 
   has_many :lesson_progresses, dependent: :destroy
   has_many :user_quizzes, dependent: :restrict_with_error
-
+  has_many :user_lesson_progresses, dependent: :destroy
+  
   validates :status,
             presence: true,
             inclusion: { in: %w[assigned in_progress completed] }

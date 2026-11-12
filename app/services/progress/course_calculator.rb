@@ -1,53 +1,57 @@
 module Progress
   class CourseCalculator
     def self.call(user_course:)
-      lesson_progresses = user_course.lesson_progresses.to_a
+      course = user_course.course
+      lessons = course.lessons.to_a
 
-      total_lessons = lesson_progresses.size
+      total_lessons = lessons.size
 
-      completed_lessons = lesson_progresses.count do |progress|
-        progress.status == "completed"
+      lesson_results = lessons.map do |lesson|
+        Progress::LessonCalculator.call(
+          lesson: lesson,
+          user_course: user_course
+        )
       end
 
-      # Calculate page activities
-      total_pages = lesson_progresses.sum(&:total_pages)
-      completed_pages = lesson_progresses.sum(&:completed_pages)
+      completed_lessons = lesson_results.count do |result|
+        result[:status] == "completed"
+      end
 
-      # Find lesson quizzes configured for this course
-      lesson_ids = lesson_progresses.map(&:lesson_id)
+      total_pages = course.lesson_pages.count
+
+      completed_pages = user_course.user_lesson_progresses
+        .joins(:lesson_page)
+        .where(
+          lesson_pages: { lesson_id: lessons.map(&:id) },
+          user_lesson_progresses: { status: "completed" }
+        )
+        .count
 
       lesson_quizzes = Quiz.where(
-        course_id: user_course.course_id,
-        lesson_id: lesson_ids,
+        course_id: course.id,
+        lesson_id: lessons.map(&:id),
         quiz_type: "lesson"
       )
 
-      # Find the final quiz, if configured
       final_quiz = Quiz.find_by(
-        course_id: user_course.course_id,
+        course_id: course.id,
         quiz_type: "final",
         lesson_id: nil
       )
 
-      # Find all successfully passed quizzes
+      quiz_ids = lesson_quizzes.pluck(:id)
+      quiz_ids << final_quiz.id if final_quiz.present?
+
       passed_quiz_ids = UserQuiz.where(
         user_course_id: user_course.id,
+        quiz_id: quiz_ids,
         status: "submitted",
         result: "pass"
-      ).pluck(:quiz_id)
+      ).distinct.pluck(:quiz_id)
 
-      # Calculate quiz activities
-      total_quizzes = lesson_quizzes.count + (final_quiz.present? ? 1 : 0)
+      total_quizzes = quiz_ids.size
+      completed_quizzes = passed_quiz_ids.size
 
-      completed_quizzes = lesson_quizzes.count do |quiz|
-        passed_quiz_ids.include?(quiz.id)
-      end
-
-      if final_quiz.present? && passed_quiz_ids.include?(final_quiz.id)
-        completed_quizzes += 1
-      end
-
-      # Calculate overall course progress
       total_activities = total_pages + total_quizzes
       completed_activities = completed_pages + completed_quizzes
 
@@ -58,7 +62,6 @@ module Progress
           (completed_activities.to_f / total_activities * 100).round(2)
         end
 
-      # Determine course status
       status =
         if total_activities.positive? &&
            completed_activities >= total_activities
@@ -74,7 +77,8 @@ module Progress
         completed_lessons: completed_lessons,
         progress_percentage: percentage,
         status: status,
-        completed_at: status == "completed" ? (user_course.completed_at || Time.current) : nil
+        completed_at: status == "completed" ?
+          (user_course.completed_at || Time.current) : nil
       }
     end
   end

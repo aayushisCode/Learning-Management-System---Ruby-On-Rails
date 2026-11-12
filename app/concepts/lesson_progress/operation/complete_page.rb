@@ -100,6 +100,9 @@ module LessonProgress::Operation
             user_course: ctx[:user_course]
           )
 
+          progress.reload
+          ctx[:user_course].reload
+
           true
         end
       end

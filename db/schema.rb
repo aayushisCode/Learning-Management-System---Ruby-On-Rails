@@ -10,7 +10,10 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_05_122724) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_12_095249) do
+  # These are extensions that must be enabled in order to support this database
+  enable_extension "pg_catalog.plpgsql"
+
   create_table "categories", force: :cascade do |t|
     t.string "category_name"
     t.string "description"
@@ -26,6 +29,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_122724) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["category_id"], name: "index_courses_on_category_id"
+  end
+
+  create_table "lesson_pages", force: :cascade do |t|
+    t.integer "lesson_id", null: false
+    t.string "title", null: false
+    t.string "topic"
+    t.text "content"
+    t.jsonb "metadata", default: {}, null: false
+    t.integer "position", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["lesson_id", "position"], name: "index_lesson_pages_on_lesson_id_and_position", unique: true
+    t.index ["lesson_id"], name: "index_lesson_pages_on_lesson_id"
   end
 
   create_table "lesson_progresses", force: :cascade do |t|
@@ -81,8 +97,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_122724) do
     t.index ["category_id"], name: "index_questions_on_category_id"
     t.index ["course_id"], name: "index_questions_on_course_id"
     t.index ["quiz_id"], name: "index_questions_on_quiz_id"
-    t.check_constraint "question_type IN ('mcq', 'boolean')", name: "questions_valid_type"
-    t.check_constraint "status IN ('active', 'inactive')", name: "questions_valid_status"
+    t.check_constraint "question_type::text = ANY (ARRAY['mcq'::character varying::text, 'boolean'::character varying::text])", name: "questions_valid_type"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text])", name: "questions_valid_status"
   end
 
   create_table "quizzes", force: :cascade do |t|
@@ -96,8 +112,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_122724) do
     t.datetime "updated_at", null: false
     t.index ["course_id"], name: "index_quizzes_on_course_id"
     t.index ["lesson_id"], name: "index_quizzes_on_lesson_id"
-    t.check_constraint "(quiz_type = 'lesson' AND lesson_id IS NOT NULL) OR (quiz_type = 'final' AND lesson_id IS NULL)", name: "quizzes_lesson_or_final_reference"
-    t.check_constraint "quiz_type IN ('final', 'lesson')", name: "quizzes_valid_quize_type"
+    t.check_constraint "quiz_type::text = 'lesson'::text AND lesson_id IS NOT NULL OR quiz_type::text = 'final'::text AND lesson_id IS NULL", name: "quizzes_lesson_or_final_reference"
+    t.check_constraint "quiz_type::text = ANY (ARRAY['final'::character varying::text, 'lesson'::character varying::text])", name: "quizzes_valid_quize_type"
   end
 
   create_table "roles", force: :cascade do |t|
@@ -124,6 +140,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_122724) do
     t.index ["course_id"], name: "index_user_courses_on_course_id"
     t.index ["user_id", "course_id"], name: "index_user_courses_on_user_id_and_course_id", unique: true
     t.index ["user_id"], name: "index_user_courses_on_user_id"
+  end
+
+  create_table "user_lesson_progresses", force: :cascade do |t|
+    t.integer "user_course_id", null: false
+    t.integer "lesson_page_id", null: false
+    t.string "status", default: "not_started", null: false
+    t.datetime "started_at"
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["lesson_page_id"], name: "index_user_lesson_progresses_on_lesson_page_id"
+    t.index ["user_course_id", "lesson_page_id"], name: "index_user_lesson_progresses_on_course_and_page", unique: true
+    t.index ["user_course_id"], name: "index_user_lesson_progresses_on_user_course_id"
   end
 
   create_table "user_options", force: :cascade do |t|
@@ -166,10 +195,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_122724) do
     t.string "name"
     t.text "address"
     t.string "contact"
+    t.string "encrypted_password", null: false
+    t.string "jti", null: false
+    t.index ["jti"], name: "index_users_on_jti", unique: true
     t.index ["role_id"], name: "index_users_on_role_id"
   end
 
   add_foreign_key "courses", "categories"
+  add_foreign_key "lesson_pages", "lessons"
   add_foreign_key "lesson_progresses", "lessons"
   add_foreign_key "lesson_progresses", "user_courses"
   add_foreign_key "lessons", "courses"
@@ -183,6 +216,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_05_122724) do
   add_foreign_key "user_courses", "courses"
   add_foreign_key "user_courses", "users"
   add_foreign_key "user_courses", "users", column: "assigned_by_id"
+  add_foreign_key "user_lesson_progresses", "lesson_pages"
+  add_foreign_key "user_lesson_progresses", "user_courses"
   add_foreign_key "user_options", "options"
   add_foreign_key "user_options", "questions"
   add_foreign_key "user_options", "user_quizzes"
