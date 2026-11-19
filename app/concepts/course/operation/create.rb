@@ -1,39 +1,40 @@
 
 module Course::Operation
-  class Create < Trailblazer::Operation
-    step :check_admin
+  class Create < ApplicationOperation
+    step :authorize_create
     step Model(Course, :new)
     step :build_course
     fail :handle_failure
 
-    def check_admin(ctx, current_user:, **)
-      unless current_user&.admin?
-        ctx[:error] = {
-          msg: "Only admin can create courses",
-          status: :forbidden
-        }
-        return false
-      end
+    step :success_response
 
-      true
+
+    def build_course(ctx, **)
+      attributes = ctx[:params].require(:course).permit(:category_id, :title, :description, :status)
+      ctx[:model].assign_attributes(attributes)
+      ctx[:model].save
     end
 
-    def build_course(ctx, course_params:, **)
-      ctx[:model].assign_attributes(course_params)
-
-      if ctx[:model].save
-        true
-      else
-        ctx[:errors] = ctx[:model].errors.full_messages
-        false
-      end
+    def authorize_create(ctx, **)
+      authorize_record(ctx, Course, :create?)
     end
 
     def handle_failure(ctx, **)
-      ctx[:error] = {
+      ctx[:response_data] = {
         msg: "Course creation failed",
-        status: :unprocessable_entity
+        errors: ctx[:model].errors.full_messages
       }
+      ctx[:status] = :unprocessable_entity
+    end
+
+    def success_response(ctx, **)
+      ctx[:response_data] = {
+        msg: "Course Created Successfully",
+        data: ctx[:model].as_json(
+          only: %i[id category_id title description status]
+        )
+      }
+      ctx[:status] = :created
     end
   end
 end

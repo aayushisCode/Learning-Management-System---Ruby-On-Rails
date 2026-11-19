@@ -1,15 +1,26 @@
 
 module UserCourse::Operation
-  class Create < Trailblazer::Operation
+  class Create < ApplicationOperation
+    step :authorize_create
     step :validate_filter_type
     step :fetch_course
     step :fetch_users
     step :create_assignments
+    step :set_response
 
     fail :handle_failure
 
     # Step 1: Validate selection type
+    def authorize_create(ctx, **)
+      authorize_record(ctx, UserCourse, :create?)
+    end
+
     def validate_filter_type(ctx, params:, **)
+      source = params[:user_course].presence || params
+      ctx[:params] = source.permit(
+        :filter_type, :category_id, :course_id, user_ids: [], role_ids: []
+      ).to_h.with_indifferent_access
+      params = ctx[:params]
       filter_type = params[:filter_type].to_s
 
       unless %w[user role].include?(filter_type)
@@ -23,7 +34,7 @@ module UserCourse::Operation
       true
     end
 
-    # Step 2: Fetch ONE course
+    # Step 2: Fetch ONE published course
     def fetch_course(ctx, params:, **)
       category_id = params[:category_id]
       course_id = params[:course_id]
@@ -46,7 +57,7 @@ module UserCourse::Operation
         return false
       end
 
-      course = Course.includes(:lessons).find_by(
+      course = Course.includes(lessons: :lesson_pages).find_by(
         id: course_id,
         category_id: category.id,
         status: "published"
@@ -69,7 +80,6 @@ module UserCourse::Operation
       filter_type = params[:filter_type].to_s
 
       case filter_type
-
       when "user"
         user_ids = Array(params[:user_ids])
                     .reject(&:blank?)
@@ -140,6 +150,7 @@ module UserCourse::Operation
     end
 
     # Step 4: Assign ONE course to MULTIPLE users
+    # Create ONE UserLessonProgress record per lesson
     def create_assignments(ctx, **)
       assignments = []
       course = ctx[:course]
@@ -149,16 +160,30 @@ module UserCourse::Operation
           assignment = UserCourse.create!(
             user: user,
             course: course,
-            assigned_by: ctx[:current_user]
+            assigned_by: ctx[:current_user],
+            status: "assigned",
+            assigned_at: Time.current,
+            due_date: 30.days.from_now.to_date,
+            progress_percentage: 0,
+            completed_lessons: 0,
+            total_lessons: course.lessons.size
           )
 
           course.lessons.each do |lesson|
-            lesson.lesson_pages.each do |page|
-              assignment.user_lesson_progresses.create!(
-                lesson_page: page,
-                status: "not_started"
-              )
-            end
+            assignment.user_lesson_progresses.create!(
+              lesson: lesson,
+              status: "not_started",
+              metadata: {
+                "pages" => lesson.lesson_pages.each_with_object({}) do |page, pages|
+                  pages[page.id.to_s] = {
+                    "completed" => false
+                  }
+                end,
+                "completed_pages" => 0,
+                "total_pages" => lesson.lesson_pages.size,
+                "progress_percentage" => 0
+              }
+            )
           end
 
           assignments << assignment
@@ -169,17 +194,65 @@ module UserCourse::Operation
       true
 
     rescue ActiveRecord::RecordInvalid => e
-      ctx[:errors] = e.record.errors.full_messages
+      error_messages = e.record.errors.full_messages
+
+      Rails.logger.error(
+        "UserCourse assignment failed: " \
+        "#{e.record.class} - #{error_messages.join(', ')}"
+      )
+
+      ctx[:errors] = error_messages
 
       ctx[:error] = {
-        msg: "Unable to create course assignments.",
+        msg: "Unable to create course assignments: #{error_messages.join(', ')}",
         status: :unprocessable_entity
+      }
+
+      false
+
+    rescue ActiveRecord::RecordNotUnique => e
+      Rails.logger.error(
+        "Duplicate course assignment: #{e.message}"
+      )
+
+      ctx[:error] = {
+        msg: "One or more users are already assigned to this course.",
+        status: :unprocessable_entity
+      }
+
+      false
+
+    rescue StandardError => e
+      Rails.logger.error(
+        "Unexpected course assignment error: #{e.class} - #{e.message}"
+      )
+
+      ctx[:error] = {
+        msg: "An unexpected error occurred while creating course assignments.",
+        status: :internal_server_error
       }
 
       false
     end
 
     # Failure handling
+    def set_response(ctx, **)
+      ctx[:response_data] = {
+        message: "Course assigned successfully",
+        data: ctx[:assignments].map do |assignment|
+          {
+            id: assignment.id,
+            user_id: assignment.user_id,
+            course_id: assignment.course_id,
+            status: assignment.status,
+            assigned_at: assignment.assigned_at,
+            due_date: assignment.due_date
+          }
+        end
+      }
+      ctx[:status] = :created
+    end
+
     def handle_failure(ctx, **)
       ctx[:error] ||= {
         msg: "Course assignment failed.",

@@ -1,25 +1,20 @@
 
 module Course::Operation
-  class Update < Trailblazer::Operation
-    step :check_admin
-    step Model(Course, :find_by)
+  class Update < ApplicationOperation
+    step :find_course
     step :update_course
     fail :handle_failure
 
-    def check_admin(ctx, current_user:, **)
-      unless current_user&.admin?
-        ctx[:error] = {
-          msg: "Only admin can update courses",
-          status: :forbidden
-        }
-        return false
-      end
-
+    def find_course(ctx, params:, **)
+      ctx[:model] = policy_scope_for(ctx, Course).find_by(id: params[:id])
+      return false unless ctx[:model]
+      authorize_record(ctx, ctx[:model], :update?)
       true
     end
 
-    def update_course(ctx, course_params:, **)
-      if ctx[:model].update(course_params)
+    def update_course(ctx, params:, **)
+      attributes = params.require(:course).permit(:category_id, :title, :description, :status)
+      if ctx[:model].update(attributes)
         true
       else
         ctx[:errors] = ctx[:model].errors.full_messages

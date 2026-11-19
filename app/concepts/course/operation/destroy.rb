@@ -1,20 +1,14 @@
 
 module Course::Operation
-  class Destroy < Trailblazer::Operation
-    step :check_admin
-    step Model(Course, :find_by)
+  class Destroy < ApplicationOperation
+    step :find_course
     step :delete_course
     fail :handle_failure
 
-    def check_admin(ctx, current_user:, **)
-      unless current_user&.admin?
-        ctx[:error] = {
-          msg: "Only admin can delete courses",
-          status: :forbidden
-        }
-        return false
-      end
-
+    def find_course(ctx, params:, **)
+      ctx[:model] = policy_scope_for(ctx, Course).find_by(id: params[:id])
+      return false unless ctx[:model]
+      authorize_record(ctx, ctx[:model], :destroy?)
       true
     end
 

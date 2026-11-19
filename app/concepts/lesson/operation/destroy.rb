@@ -1,20 +1,15 @@
 
 module Lesson::Operation
-  class Destroy < Trailblazer::Operation
-    step :check_admin
-    step Model(Lesson, :find_by)
+  class Destroy < ApplicationOperation
+    step :find_lesson
     step :destroy_lesson
     fail :handle_failure
+    step :set_response
 
-
-    def check_admin(ctx, current_user:, **)
-      unless current_user&.admin?
-        ctx[:error] = {
-        msg: "Only admin can delete lessons",
-        status: :forbidden
-        }
-        return false
-      end
+    def find_lesson(ctx, params:, **)
+      ctx[:model] = policy_scope_for(ctx, Lesson).find_by(id: params[:id])
+      return false unless ctx[:model]
+      authorize_record(ctx, ctx[:model], :destroy?)
       true
     end
 
@@ -25,6 +20,11 @@ module Lesson::Operation
         ctx[:errors] = ctx[:model].errors.full_messages
         false
       end
+    end
+
+    def set_response(ctx, **)
+      ctx[:response_data] = { message: "Lesson deleted successfully" }
+      ctx[:status] = :ok
     end
 
     def handle_failure(ctx, **)

@@ -1,46 +1,41 @@
+
 module Category::Operation
-  class Destroy < Trailblazer::Operation
-    step :check_admin
-    step Model(Category, :find_by)
+  class Destroy < ApplicationOperation
+    step :find_category
     step :delete_category
-
     fail :handle_failure
+    step :success_response
 
-    def check_admin(ctx, current_user:, **)
-      unless current_user&.admin?
-        ctx[:error] = {
-          msg: "Only admin can delete categories",
-          status: :forbidden
-        }
-        return false
-      end
-
+    def find_category(ctx, params:, **)
+      ctx[:model] = policy_scope_for(ctx, Category).find_by(id: params[:id])
+      return false unless ctx[:model]
+      authorize_record(ctx, ctx[:model], :destroy?)
       true
     end
 
     def delete_category(ctx, **)
-      if ctx[:model].destroy
-        ctx[:response_data] = {
-          msg: "Category deleted successfully"
-        }
-        true
-      else
-        ctx[:errors] = ctx[:model].errors.full_messages
-        false
-      end
+      ctx[:model].destroy
+    end
+
+    def success_response(ctx, **)
+      ctx[:response_data] = {
+        msg: "Category deleted successfully"
+      }
+      ctx[:status] = :ok
     end
 
     def handle_failure(ctx, **)
-      ctx[:error] ||= if ctx[:model].nil?
-        {
-          msg: "Category not found",
-          status: :not_found
+      if ctx[:model].nil?
+        ctx[:response_data] = {
+          msg: "Category not found"
         }
+        ctx[:status] = :not_found
       else
-        {
+        ctx[:response_data] = {
           msg: "Category deletion failed",
-          status: :unprocessable_entity
+          errors: ctx[:model].errors.full_messages
         }
+        ctx[:status] = :unprocessable_entity
       end
     end
   end

@@ -21,7 +21,7 @@ class Question < ApplicationRecord
 
   validates :question_type,
             presence: true,
-            inclusion: { in: %w[mcq boolean] }
+            inclusion: { in: %w[mcq true_false] }
 
   validates :marks,
             numericality: { greater_than: 0 }

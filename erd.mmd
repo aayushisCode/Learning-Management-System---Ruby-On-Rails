@@ -22,14 +22,6 @@ erDiagram
 		string title
 		string topic
 	}
-	LessonProgress {
-		datetime completed_at
-		integer completed_pages
-		decimal progress_percentage
-		datetime started_at
-		string status
-		integer total_pages
-	}
 	Option {
 		string option_text
 		integer position
@@ -70,6 +62,7 @@ erDiagram
 	}
 	UserLessonProgress {
 		datetime completed_at
+		jsonb metadata
 		datetime started_at
 		string status
 	}
@@ -92,11 +85,9 @@ erDiagram
 	Course o|..}o User : ""
 	Course ||--}o Quiz : ""
 	Course ||--}o Question : ""
-	Lesson ||--}o LessonProgress : ""
 	Lesson o|--}o Quiz : ""
 	Lesson ||--}o LessonPage : ""
 	LessonPage ||--}o UserLessonProgress : ""
-	UserCourse ||--}o LessonProgress : ""
 	Option ||--}o Question : ""
 	Option ||--}o UserOption : ""
 	Quiz ||--}o Question : ""

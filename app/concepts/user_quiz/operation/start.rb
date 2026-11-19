@@ -1,48 +1,15 @@
 
 module UserQuiz::Operation
-  class Start < Trailblazer::Operation
-    step :find_user_course
-    step :find_quiz
+  class Start < ApplicationOperation
+    step :fetch_records
+    step :validate_quiz_course
     step :validate_quiz_access
     step :create_attempt
 
     fail :handle_failure
+    step :set_response
 
-    def find_user_course(ctx, params:, current_user:, **)
-      ctx[:user_course] = UserCourse.find_by(
-        id: params[:user_course_id],
-        user_id: current_user.id
-      )
-
-      unless ctx[:user_course]
-        ctx[:error] = {
-          msg: "Course assignment not found",
-          status: :not_found
-        }
-        return false
-      end
-
-      true
-    end
-
-    def find_quiz(ctx, params:, **)
-      ctx[:quiz] = Quiz.find_by(id: params[:quiz_id])
-
-      unless ctx[:quiz]
-        ctx[:error] = {
-          msg: "Quiz not found",
-          status: :not_found
-        }
-        return false
-      end
-
-      true
-    end
-
-    def validate_quiz_access(ctx, **)
-      user_course = ctx[:user_course]
-      quiz = ctx[:quiz]
-
+    def validate_quiz_course(ctx, user_course:, quiz:, **)
       unless user_course.course_id == quiz.course_id
         ctx[:error] = {
           msg: "This quiz does not belong to the assigned course",
@@ -51,10 +18,27 @@ module UserQuiz::Operation
         return false
       end
 
-      active_attempt = user_course.user_quizzes.find_by(
+      true
+    end
+
+    def validate_quiz_access(ctx, user_course:, quiz:, **)
+      active_attempt = user_course.user_quizzes.exists?(
         quiz_id: quiz.id,
         status: "in_progress"
       )
+      passed_attempt = user_course.user_quizzes.exists?(
+        quiz_id: quiz.id,
+        status: "submitted",
+        result: "pass"
+      )
+
+      if passed_attempt
+        ctx[:error] = {
+          msg: "You have already passed this quiz",
+          status: :conflict
+        }
+        return false
+      end
 
       if active_attempt
         ctx[:error] = {
@@ -66,12 +50,9 @@ module UserQuiz::Operation
 
       case quiz.quiz_type
       when "lesson"
-        lesson_progress = user_course.lesson_progresses.find_by(
-          lesson_id: quiz.lesson_id,
-          status: "completed"
-        )
+        lesson = user_course.course.lessons.find_by(id: quiz.lesson_id)
 
-        unless lesson_progress
+        unless lesson && lesson_content_completed?(user_course, lesson)
           ctx[:error] = {
             msg: "Complete the lesson before starting its quiz",
             status: :unprocessable_entity
@@ -107,10 +88,7 @@ module UserQuiz::Operation
       true
     end
 
-    def create_attempt(ctx, **)
-      user_course = ctx[:user_course]
-      quiz = ctx[:quiz]
-
+    def create_attempt(ctx, user_course:, quiz:, **)
       attempt_number = user_course.user_quizzes
                                  .where(quiz_id: quiz.id)
                                  .maximum(:attempt_number).to_i + 1
@@ -124,6 +102,10 @@ module UserQuiz::Operation
 
       unless ctx[:model].save
         ctx[:errors] = ctx[:model].errors.full_messages
+        ctx[:error] = {
+          msg: "Unable to start quiz",
+          status: :unprocessable_entity
+        }
         return false
       end
 
@@ -140,14 +122,30 @@ module UserQuiz::Operation
     private
 
     def all_lessons_completed?(user_course)
-      total_lessons = user_course.course.lessons.count
+      lessons = user_course.course.lessons.to_a
 
-      completed_lessons = user_course.lesson_progresses
-                                     .where(status: "completed")
-                                     .distinct
-                                     .count(:lesson_id)
+      lessons.any? do |lesson|
+        lesson_content_completed?(user_course, lesson)
+      end && lessons.all? do |lesson|
+        lesson_content_completed?(user_course, lesson)
+      end
+    end
 
-      completed_lessons == total_lessons
+    def lesson_content_completed?(user_course, lesson)
+      progress = user_course.user_lesson_progresses.find_by(
+        lesson_id: lesson.id
+      )
+
+      return false unless progress
+
+      pages = lesson.lesson_pages.to_a
+      return false if pages.empty?
+
+      completed_pages = progress.metadata&.dig("pages") || {}
+
+      pages.all? do |page|
+        completed_pages.dig(page.id.to_s, "completed") == true
+      end
     end
 
     def all_lesson_quizzes_passed?(user_course)
@@ -155,13 +153,37 @@ module UserQuiz::Operation
                                    .where(quiz_type: "lesson")
                                    .pluck(:id)
 
-      lesson_quiz_ids.all? do |quiz_id|
-        user_course.user_quizzes.exists?(
-          quiz_id: quiz_id,
-          status: "submitted",
-          result: "pass"
-        )
-      end
+      lesson_quiz_ids.any? &&
+        lesson_quiz_ids.all? do |quiz_id|
+          user_course.user_quizzes.exists?(
+            quiz_id: quiz_id,
+            status: "submitted",
+            result: "pass"
+          )
+        end
     end
   end
 end
+    def fetch_records(ctx, params:, **)
+      user_course = policy_scope_for(ctx, UserCourse).find_by(id: params[:user_course_id])
+      return missing_record(ctx, "Course assignment not found") unless user_course
+      authorize_record(ctx, user_course, :start_quiz?)
+
+      quiz = policy_scope_for(ctx, Quiz).find_by(id: params[:quiz_id])
+      return missing_record(ctx, "Quiz not found") unless quiz
+      authorize_record(ctx, quiz, :show?)
+
+      ctx[:user_course] = user_course
+      ctx[:quiz] = quiz
+    end
+
+    def missing_record(ctx, message)
+      ctx[:error] = { msg: message, status: :not_found }
+      false
+    end
+
+    def set_response(ctx, **)
+      attempt = ctx[:model]
+      ctx[:response_data] = { message: "Quiz started", user_quiz_id: attempt.id, attempt_number: attempt.attempt_number, started_at: attempt.started_at }
+      ctx[:status] = :created
+    end

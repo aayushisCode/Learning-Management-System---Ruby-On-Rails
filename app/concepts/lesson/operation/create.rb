@@ -1,24 +1,21 @@
 module Lesson::Operation
-  class Create < Trailblazer::Operation
-    step :check_admin
+  class Create < ApplicationOperation
+    step :authorize_create
     step Model(Lesson, :new)
     step :build_lesson
 
     fail :handle_failure
+    step :set_response
 
-    def check_admin(ctx, current_user:, **)
-      unless current_user&.admin?
-        ctx[:error] = {
-          msg: "Only admin can create lessons",
-          status: :forbidden
-        }
-        return false
-      end
-
-      true
+    def authorize_create(ctx, **)
+      authorize_record(ctx, Lesson, :create?)
     end
 
-    def build_lesson(ctx, lesson_params:, **)
+    def build_lesson(ctx, params:, **)
+      lesson_params = params.expect(
+        lesson: [:course_id, :title, :content_type, :position,
+          { lesson_pages_attributes: [[:id, :title, :topic, :content, :position, :_destroy, { metadata: {} }]] }]
+      )
       ctx[:model].assign_attributes(lesson_params)
 
       if ctx[:model].save
@@ -27,6 +24,11 @@ module Lesson::Operation
         ctx[:errors] = ctx[:model].errors.full_messages
         false
       end
+    end
+
+    def set_response(ctx, **)
+      ctx[:response_data] = { data: ctx[:model] }
+      ctx[:status] = :created
     end
 
     def handle_failure(ctx, **)

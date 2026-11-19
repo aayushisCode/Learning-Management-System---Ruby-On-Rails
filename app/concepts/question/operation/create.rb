@@ -1,6 +1,7 @@
 
 module Question::Operation
-  class Create < Trailblazer::Operation
+  class Create < ApplicationOperation
+    step :authorize_create
     step Model(Question, :new)
     step :build_question
     step :validate_question_relationships
@@ -8,14 +9,38 @@ module Question::Operation
     step :save_question_and_options
 
     fail :handle_failure
+    step :set_response
 
-    def build_question(ctx, question_params:, **)
-      attributes = question_params.to_h.with_indifferent_access
+    def authorize_create(ctx, **)
+      authorize_record(ctx, Question, :create?)
+    end
+
+    def set_response(ctx, **)
+      ctx[:response_data] = { data: question_json(ctx[:model]) }
+      ctx[:status] = :created
+    end
+
+    def question_json(question)
+      question.as_json(
+        only: [:id, :category_id, :course_id, :quiz_id, :question_text, :question_type,
+          :correct_option_id, :marks, :position, :status, :created_at, :updated_at],
+        include: { options: { only: [:id, :option_text, :position] } }
+      )
+    end
+
+    def build_question(ctx, params:, **)
+      attributes = params.require(:question).permit(
+        :category_id, :course_id, :quiz_id, :question_text, :question_type,
+        :marks, :position, :status, :correct_option_position,
+        options_attributes: [:option_text, :position]
+      ).to_h.with_indifferent_access
 
       ctx[:options_attributes] = attributes.delete(:options_attributes)
       ctx[:correct_option_position] = attributes.delete(:correct_option_position)
 
       ctx[:model].assign_attributes(attributes)
+
+      true
     end
 
     def validate_question_relationships(ctx, **)
@@ -66,10 +91,10 @@ module Question::Operation
 
       expected_count = case question.question_type
       when "mcq" then 4
-      when "boolean" then 2
+      when "true_false" then 2
       else
         ctx[:error] = {
-          msg: "Question type must be mcq or boolean",
+          msg: "Question type must be mcq or true_false",
           status: :unprocessable_entity
         }
         return false
@@ -93,14 +118,14 @@ module Question::Operation
         return false
       end
 
-      if question.question_type == "boolean"
+      if question.question_type == "true_false"
         option_texts = options.map do |option|
           option[:option_text].to_s.strip.downcase
         end
 
         unless option_texts.sort == %w[false true]
           ctx[:error] = {
-            msg: "Boolean options must be True and False",
+            msg: "true_false options must be True and False",
             status: :unprocessable_entity
           }
           return false
@@ -152,7 +177,7 @@ module Question::Operation
 
     def handle_failure(ctx, **)
       ctx[:error] ||= {
-        msg: "Question creation failed",
+        msg: ctx[:errors]&.join(", ") || "Question creation failed",
         status: :unprocessable_entity
       }
     end

@@ -1,25 +1,47 @@
 class ApplicationController < ActionController::API
+  include Pundit::Authorization
+
   before_action :authenticate_user!
+
+  rescue_from Pundit::NotAuthorizedError,
+              with: :user_not_authorized
 
   private
 
-  def authorize_roles!(*roles)
-    current_role = current_user&.role&.name.to_s.downcase
-    allowed_roles = roles.map { |role| role.to_s.downcase }
+  # trailblazer-rails supplies params by default; current_user is the only
+  # request dependency it does not expose to operations.
+  def _run_options(context)
+    context.merge(current_user: current_user)
+  end
 
-    return true if allowed_roles.include?(current_role)
-
+  # Handles Pundit authorization failures
+  def user_not_authorized
     render json: {
-      error: "You are not authorized",
-      status: :forbidden
+      msg: "You are not authorized to perform this action."
     }, status: :forbidden
   end
 
+  # Render the response data produced by a successful Trailblazer operation.
+  def render_operation_response(result)
+    render json: result[:response_data] || { data: result[:model] },
+           status: result[:status] || :ok
+  end
+
+  # def render_operation_error(result, default_status: :unprocessable_entity)
+  #   error = result[:error] || {}
+  #   response = result[:response_data]
+  #   message = error[:msg] || response&.dig(:msg) || "Request failed"
+  #   status = error[:status] || result[:status] || default_status
+
+  #   render json: { error: message }, status: status
+  # end
   def render_operation_error(result, default_status: :unprocessable_entity)
     error = result[:error] || {}
+    response = result[:response_data]
 
-    render json: {
-      error: error[:msg] || "Something went wrong"
-    }, status: error[:status] || default_status
+    message = error[:msg] || response&.dig(:msg) || "Request failed"
+    status = error[:status] || result[:status] || default_status
+
+    render json: { msg: message }, status: status
   end
 end

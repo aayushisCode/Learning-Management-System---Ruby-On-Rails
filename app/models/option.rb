@@ -6,7 +6,8 @@ class Option < ApplicationRecord
 
   has_many :correct_for_questions,
            class_name: "Question",
-           foreign_key: :correct_option_id
+           foreign_key: :correct_option_id,
+           dependent: :restrict_with_error
 
   has_many :user_options,
            dependent: :restrict_with_error

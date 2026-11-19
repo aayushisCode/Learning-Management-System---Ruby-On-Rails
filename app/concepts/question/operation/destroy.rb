@@ -1,10 +1,17 @@
 
 module Question::Operation
-  class Destroy < Trailblazer::Operation
-    step Model(Question, :find_by)
+  class Destroy < ApplicationOperation
+    step :find_question
     step :destroy_question
 
     fail :handle_failure
+
+    def find_question(ctx, params:, **)
+      ctx[:model] = policy_scope_for(ctx, Question).find_by(id: params[:id])
+      return false unless ctx[:model]
+      authorize_record(ctx, ctx[:model], :destroy?)
+      true
+    end
 
     def destroy_question(ctx, **)
       if ctx[:model].destroy

@@ -1,11 +1,14 @@
 
 module User::Operation
-  class Index < Trailblazer::Operation
+  class Index < ApplicationOperation
     step :fetch_users
     fail :handle_failure
 
     def fetch_users(ctx, **)
-      ctx[:models] = User.all.to_a
+      authorize_record(ctx, User, :index?)
+      ctx[:models] = policy_scope_for(ctx, User).to_a
+      ctx[:response_data] = { data: ctx[:models].as_json(only: [:id, :email, :role_id, :created_at, :updated_at]) }
+      ctx[:status] = :ok
       true
     rescue StandardError => e
       Rails.logger.error("User Index Error: #{e.full_message}")

@@ -1,29 +1,42 @@
 module Category::Operation
-  class Update < Trailblazer::Operation
-    step Model(Category, :find_by)
+  class Update < ApplicationOperation
+    step :find_category
     step :update_category
     fail :handle_failure
+    step :success_response
 
-    def update_category(ctx, category_params:, **)
-      if ctx[:model].update(category_params)
-        true
-      else
-        ctx[:errors] = ctx[:model].errors.full_messages
-        false
-      end
+    def find_category(ctx, params:, **)
+      ctx[:model] = policy_scope_for(ctx, Category).find_by(id: params[:id])
+      return false unless ctx[:model]
+      authorize_record(ctx, ctx[:model], :update?)
+      true
+    end
+
+    def update_category(ctx, params:, **)
+      attributes = params.require(:category).permit(:category_name, :description)
+      ctx[:model].update(attributes)
+    end
+
+    def success_response(ctx, **)
+      ctx[:response_data] = {
+        msg: "Category updated successfully",
+        data: ctx[:model].as_json(
+          only: %i[id category_name description created_at updated_at]
+        )
+      }
+      ctx[:status] = :ok
     end
 
     def handle_failure(ctx, **)
-      ctx[:error] = if ctx[:model].nil?
-        {
-          msg: "Category not found",
-          status: :not_found
-        }
+      if ctx[:model].nil?
+        ctx[:response_data] = { msg: "Category not found" }
+        ctx[:status] = :not_found
       else
-        {
+        ctx[:response_data] = {
           msg: "Category update failed",
-          status: :unprocessable_entity
+          errors: ctx[:model].errors.full_messages
         }
+        ctx[:status] = :unprocessable_entity
       end
     end
   end

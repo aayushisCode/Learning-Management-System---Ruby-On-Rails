@@ -137,14 +137,6 @@ courses.each do |course|
 
   lesson.title = "#{course.title} - Introduction"
   lesson.content_type = "document"
-
-  lesson.pages = [
-    {
-      "title" => "Introduction",
-      "content" => "Introduction to #{course.title}."
-    }
-  ]
-
   lesson.save!
   lessons << lesson
 end
@@ -165,7 +157,7 @@ lessons.each do |lesson|
 
   page.title = "Introduction"
   page.topic = "Fundamentals"
-  page.content = "Learning material for #{lesson.title}."
+  page.content = "Introduction to #{lesson.course.title}."
   page.metadata = { "page_type" => "reading" }
 
   page.save!
@@ -217,7 +209,7 @@ courses.each_with_index do |course, index|
   question.question_text =
     "Question #{index + 1}: Is understanding #{course.title} important?"
 
-  question.question_type = index.even? ? "mcq" : "boolean"
+  question.question_type = index.even? ? "mcq" : "true_false"
   question.marks = 1
   question.status = "active"
   question.position = 1
@@ -230,7 +222,7 @@ end
 puts "Questions created"
 
 # ----------------------------------------
-# 9. OPTIONS (10)
+# 9. OPTIONS
 # 2 options per question
 # ----------------------------------------
 
@@ -238,7 +230,7 @@ options = []
 
 questions.each do |question|
   option_texts =
-    if question.question_type == "boolean"
+    if question.question_type == "true_false"
       ["True", "False"]
     else
       ["Yes, it is important", "No, it is not important"]
@@ -267,7 +259,7 @@ end
 puts "Options created"
 
 # ----------------------------------------
-# 10. USER COURSE ASSIGNMENTS (5)
+# 10. USER COURSE ASSIGNMENTS
 # Assign only to learners
 # ----------------------------------------
 
@@ -304,46 +296,26 @@ end
 puts "User courses created"
 
 # ----------------------------------------
-# 11. LESSON PROGRESSES (5)
-# ----------------------------------------
-
-lesson_progresses = []
-
-user_courses.each_with_index do |user_course, index|
-  progress = LessonProgress.find_or_initialize_by(
-    user_course_id: user_course.id,
-    lesson_id: lessons[index].id
-  )
-
-  progress.status = "not_started"
-  progress.completed_pages = 0
-  progress.total_pages = 1
-  progress.progress_percentage = 0
-
-  progress.save!
-  lesson_progresses << progress
-end
-
-puts "Lesson progresses created"
-
-# ----------------------------------------
-# 12. USER LESSON PROGRESSES (5)
+# 11. USER LESSON PROGRESSES
 # ----------------------------------------
 
 user_courses.each_with_index do |user_course, index|
   progress = UserLessonProgress.find_or_initialize_by(
     user_course_id: user_course.id,
-    lesson_page_id: lesson_pages[index].id
+    lesson_id: lessons[index].id
   )
 
   progress.status = "not_started"
+  progress.progress_percentage = 0
+  progress.metadata = {}
+
   progress.save!
 end
 
 puts "User lesson progresses created"
 
 # ----------------------------------------
-# 13. USER QUIZZES (5)
+# 12. USER QUIZZES
 # ----------------------------------------
 
 user_quizzes = []
@@ -403,7 +375,6 @@ puts "LMS seed completed successfully!"
   questions: Question.count,
   options: Option.count,
   user_courses: UserCourse.count,
-  lesson_progresses: LessonProgress.count,
   user_lesson_progresses: UserLessonProgress.count,
   user_quizzes: UserQuiz.count,
   user_options: UserOption.count

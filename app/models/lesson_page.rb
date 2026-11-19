@@ -1,7 +1,7 @@
 class LessonPage < ApplicationRecord
   belongs_to :lesson
 
-  has_many :user_lesson_progresses, dependent: :restrict_with_error
+  # has_many :user_lesson_progresses, dependent: :destroy
 
   validates :title, presence: true
 
