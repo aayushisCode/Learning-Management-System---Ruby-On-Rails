@@ -2,11 +2,13 @@ class Course < ApplicationRecord
   belongs_to :category
 
   has_many :lessons, dependent: :destroy
+  has_many :lesson_pages, through: :lessons
   has_many :user_courses, dependent: :destroy
   has_many :users, through: :user_courses
+  has_many :user_lesson_progresses, through: :user_courses
 
   has_many :quizzes, dependent: :restrict_with_error
-  has_many :question_banks, dependent: :restrict_with_error
+  has_many :questions, dependent: :restrict_with_error
 
   before_validation :normalize_title
 

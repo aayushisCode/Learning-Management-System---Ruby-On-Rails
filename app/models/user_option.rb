@@ -2,8 +2,7 @@ class UserOption < ApplicationRecord
   belongs_to :user_quiz
 
   belongs_to :question,
-             class_name: "QuestionBank",
-             foreign_key: :question_id
+             inverse_of: :user_options
 
   belongs_to :option
 

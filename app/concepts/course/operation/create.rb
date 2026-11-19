@@ -1,22 +1,40 @@
 
 module Course::Operation
-  class Create < Trailblazer::Operation
+  class Create < ApplicationOperation
+    step :authorize_create
+    step Model(Course, :new)
     step :build_course
-    fail :handle_validation_failure
+    fail :handle_failure
 
-    def build_course(ctx, course_params:, **)
-      ctx[:model] = Course.new(course_params)
+    step :success_response
 
-      if ctx[:model].save
-        true
-      else
-        ctx[:errors] = ctx[:model].errors.full_messages
-        false
-      end
+
+    def build_course(ctx, **)
+      attributes = ctx[:params].require(:course).permit(:category_id, :title, :description, :status)
+      ctx[:model].assign_attributes(attributes)
+      ctx[:model].save
     end
 
-    def handle_validation_failure(ctx, **)
-      ctx[:error] = "Course creation failed"
+    def authorize_create(ctx, **)
+      authorize_record(ctx, Course, :create?)
+    end
+
+    def handle_failure(ctx, **)
+      ctx[:response_data] = {
+        msg: "Course creation failed",
+        errors: ctx[:model].errors.full_messages
+      }
+      ctx[:status] = :unprocessable_entity
+    end
+
+    def success_response(ctx, **)
+      ctx[:response_data] = {
+        msg: "Course Created Successfully",
+        data: ctx[:model].as_json(
+          only: %i[id category_id title description status]
+        )
+      }
+      ctx[:status] = :created
     end
   end
 end

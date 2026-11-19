@@ -11,25 +11,27 @@ erDiagram
 	}
 	Lesson {
 		string content_type
+		json pages
 		integer position
 		string title
 	}
-	LessonProgress {
-		datetime completed_at
-		integer quiz_attempts
-		decimal quiz_score
-		datetime started_at
-		string status
+	LessonPage {
+		text content
+		jsonb metadata
+		integer position
+		string title
+		string topic
 	}
 	Option {
 		string option_text
 		integer position
 	}
-	QuestionBank {
+	Question {
 		decimal marks
 		integer position
 		text question_text
 		string question_type
+		string status
 	}
 	Quiz {
 		text description
@@ -44,35 +46,56 @@ erDiagram
 		text address
 		string contact
 		string email
+		string encrypted_password
+		string jti
 		string name
 		string password_digest
 	}
 	UserCourse {
 		datetime assigned_at
 		datetime completed_at
+		integer completed_lessons
 		date due_date
-		integer final_quiz_attempts
-		decimal final_quiz_score
+		decimal progress_percentage
+		string status
+		integer total_lessons
+	}
+	UserLessonProgress {
+		datetime completed_at
+		jsonb metadata
+		datetime started_at
 		string status
 	}
 	UserOption {
+	}
+	UserQuiz {
 		integer attempt_number
+		decimal percentage
+		string result
+		decimal score
+		datetime started_at
+		string status
+		datetime submitted_at
+		decimal total_marks
 	}
 	Category ||--}o Course : ""
-	Category ||--}o QuestionBank : ""
+	Category ||--}o Question : ""
 	Course ||--}o Lesson : ""
 	Course ||--}o UserCourse : ""
 	Course o|..}o User : ""
-	Course o|--}o Quiz : ""
-	Lesson ||--}o LessonProgress : ""
+	Course ||--}o Quiz : ""
+	Course ||--}o Question : ""
 	Lesson o|--}o Quiz : ""
-	UserCourse ||--}o LessonProgress : ""
-	LessonProgress o|--}o UserOption : ""
-	Option ||--}o QuestionBank : ""
+	Lesson ||--}o LessonPage : ""
+	LessonPage ||--}o UserLessonProgress : ""
+	Option ||--}o Question : ""
 	Option ||--}o UserOption : ""
-	Course ||--}o QuestionBank : ""
-	Quiz ||--}o QuestionBank : ""
-	QuestionBank ||--}o UserOption : ""
+	Quiz ||--}o Question : ""
+	Question ||--}o UserOption : ""
+	Quiz ||--}o UserQuiz : ""
 	Role o|--}o User : ""
 	User ||--}o UserCourse : ""
-	UserCourse o|--}o UserOption : ""
+	User o|..}o UserQuiz : ""
+	UserCourse ||--}o UserQuiz : ""
+	UserCourse ||--}o UserLessonProgress : ""
+	UserQuiz ||--}o UserOption : ""

@@ -1,8 +1,9 @@
+
 class UserQuiz < ApplicationRecord
   belongs_to :user_course
   belongs_to :quiz
 
-  has_many :user_options, dependent: :restrict_with_error
+  has_many :user_options, dependent: :destroy
 
   validates :attempt_number,
             presence: true,
@@ -11,7 +12,7 @@ class UserQuiz < ApplicationRecord
               greater_than: 0
             },
             uniqueness: {
-              scope: [ :user_course_id, :quiz_id ]
+              scope: [:user_course_id, :quiz_id]
             }
 
   validates :status,
@@ -22,7 +23,19 @@ class UserQuiz < ApplicationRecord
             inclusion: { in: %w[pass fail] },
             allow_nil: true
 
+  validates :score, :total_marks, :pass_marks,
+            numericality: { greater_than_or_equal_to: 0 },
+            allow_nil: true
+
+  validates :percentage,
+            numericality: {
+              greater_than_or_equal_to: 0,
+              less_than_or_equal_to: 100
+            },
+            allow_nil: true
+
   validate :quiz_must_belong_to_assigned_course
+  validate :result_requires_submitted_status
 
   private
 
@@ -31,5 +44,11 @@ class UserQuiz < ApplicationRecord
     return if quiz.course_id == user_course.course_id
 
     errors.add(:quiz, "must belong to the assigned course")
+  end
+
+  def result_requires_submitted_status
+    return if result.blank? || status == "submitted"
+
+    errors.add(:result, "can only be set after submission")
   end
 end

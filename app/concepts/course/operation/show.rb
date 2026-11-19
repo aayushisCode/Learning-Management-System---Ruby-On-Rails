@@ -1,18 +1,30 @@
+
 module Course::Operation
-  class Show < Trailblazer::Operation
+  class Show < ApplicationOperation
     step :find_course
-    fail :course_not_found
+    fail :handle_failure
+    step :success_response
 
-    def find_course(ctx, params:, **)
-      ctx[:model] = Course.find_by(id: params[:id])
-
-      return false unless ctx[:model]
-
-      true
+    def success_response(ctx, **)
+      ctx[:response_data] = {
+        data: ctx[:model].as_json(
+          only: %i[ id category_id title description status ]
+        )
+      }
+      ctx[:status] = :ok
     end
 
-    def course_not_found(ctx, **)
-      ctx[:error] = "Course not found"
+    def handle_failure(ctx, **)
+      ctx[:response_data] = {
+        msg: "Course not found"
+      }
+      ctx[:status] = :not_found
     end
   end
 end
+    def find_course(ctx, params:, **)
+      ctx[:model] = policy_scope_for(ctx, Course).find_by(id: params[:id])
+      return false unless ctx[:model]
+      authorize_record(ctx, ctx[:model], :show?)
+      true
+    end

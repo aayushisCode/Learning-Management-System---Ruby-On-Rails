@@ -1,12 +1,13 @@
 class Option < ApplicationRecord
   belongs_to :question,
-             class_name: "QuestionBank",
+             class_name: "Question",
              foreign_key: :question_id,
              inverse_of: :options
 
   has_many :correct_for_questions,
-           class_name: "QuestionBank",
-           foreign_key: :correct_option_id
+           class_name: "Question",
+           foreign_key: :correct_option_id,
+           dependent: :restrict_with_error
 
   has_many :user_options,
            dependent: :restrict_with_error

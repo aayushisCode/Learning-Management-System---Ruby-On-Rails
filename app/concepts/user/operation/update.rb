@@ -1,31 +1,50 @@
+
 module User::Operation
-  class Update < Trailblazer::Operation
+  class Update < ApplicationOperation
     step :find_user
-    fail :user_not_found, fail_fast: true
-
     step :update_user
-    fail :update_failed, fail_fast: true
+    fail :handle_failure
+    step :set_response
 
-    def find_user(ctx, params:, **)  # params: Complete request parameters
-      ctx[:model] = User.find_by(id: params[:id])
-
-      # if ctx[:model].nil?
-      #   ctx[:error] = "User not found"
-      #   return false
-      # end
-      !ctx[:model].nil?
+    def find_user(ctx, params:, **)
+      ctx[:model] = policy_scope_for(ctx, User).find_by(id: params[:id])
+      return false unless ctx[:model]
+      authorize_record(ctx, ctx[:model], :update?)
+      true
     end
 
-    def user_not_found(ctx, **)
-      ctx[:error] = "User not found"
+    def set_response(ctx, **)
+      ctx[:response_data] = {
+        data: ctx[:model].as_json(only: [:id, :email, :name, :address, :contact, :role_id, :created_at, :updated_at])
+      }
+      ctx[:status] = :ok
     end
 
-    def update_user(ctx, user_params:, **) # user_params:Permitted user attributes
-      ctx[:model].update(user_params)
+    def update_user(ctx, params:, **)
+      attributes = params.require(:user).permit(
+        :email, :password, :password_confirmation, :role_id,
+        :name, :address, :contact
+      )
+      unless ctx[:model].update(attributes)
+        ctx[:errors] = ctx[:model].errors.full_messages
+        return false
+      end
+
+      true
     end
 
-    def update_failed(ctx, **)
-      ctx[:errors] = ctx[:model].errors.full_messages
+    def handle_failure(ctx, **)
+      ctx[:error] ||= if ctx[:model].nil?
+        {
+          msg: "User not found",
+          status: :not_found
+        }
+      else
+        {
+          msg: "User update failed",
+          status: :unprocessable_entity
+        }
+      end
     end
   end
 end
